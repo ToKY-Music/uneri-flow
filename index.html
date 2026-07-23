@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Genesis Mode Prototype</title>
+  <title>UNERI Flow - Emergent Swarm Prototype</title>
   <style>
     body {
       margin: 0;
@@ -40,13 +40,13 @@
 <body>
 
   <div id="ui-container">
-    <h1>UNERI Flow - Genesis</h1>
-    <p>画面をタップ / ドラッグして「うねり」を注ぎ込んでください</p>
+    <h1>UNERI Flow - Emergence</h1>
+    <p>なぞる・叩く・速度を変えることで、無限のカタチが立ち現れます</p>
   </div>
 
   <script>
     // ==========================================
-    // 1. Web Audio API (iOS Safari対応強化)
+    // 1. Web Audio API (iOS Safari対応)
     // ==========================================
     let audioCtx = null;
 
@@ -57,13 +57,12 @@
           audioCtx = new AudioContextClass();
         }
       }
-      // iOS Safari等で suspended になっているサウンドコンテキストを解凍する
       if (audioCtx && audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
     }
 
-    // ちび粒子が発生するときの「ポコッ」という音
+    // 動きの速さ（エネルギー量）に応じたポコポコ音
     function playPokoSound(pitchRatio = 1.0) {
       if (!audioCtx || audioCtx.state !== 'running') return;
 
@@ -71,21 +70,20 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        // ポコポコ感を生むサイン波＋急激な周波数変化
-        const baseFreq = 280 + Math.random() * 220;
+        const baseFreq = 220 + Math.random() * 280;
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.8 * pitchRatio, audioCtx.currentTime + 0.07);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5 * pitchRatio, audioCtx.currentTime + 0.06);
 
-        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
 
         osc.connect(gain);
         gain.connect(audioCtx.destination);
 
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.08);
+        osc.stop(audioCtx.currentTime + 0.07);
       } catch (e) {
-        console.error("Audio play error:", e);
+        console.error("Audio error:", e);
       }
     }
 
@@ -93,91 +91,121 @@
     // 2. Three.js セットアップ
     // ==========================================
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0d0f18, 0.025);
+    scene.fog = new THREE.FogExp2(0x0d0f18, 0.02);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 25);
+    camera.position.set(0, 0, 30);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // ライティング（光の当たり方でちび粒子の立体感・ツヤを強調）
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // ライティング
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.PointLight(0x7ef1d3, 2, 60);
-    mainLight.position.set(0, 10, 15);
+    const mainLight = new THREE.PointLight(0x7ef1d3, 2.5, 80);
+    mainLight.position.set(0, 0, 20);
     scene.add(mainLight);
 
-    // レイキャスト（タッチ位置の3D座標計算）
+    // レイキャスト
     const raycaster = new THREE.Raycaster();
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const pointer = new THREE.Vector2();
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 数理・粒子モデル（ちび粒子群による創発）
+    // 3. ボトムアップ型・相互作用粒子アルゴリズム
     // ==========================================
-    const MAX_PARTICLES = 1000;
+    const MAX_PARTICLES = 1800; // 凝集体のダイナミックな拡大に対応
     const particles = [];
-    
-    // ちび粒子の共通ジオメトリ（サイズは統一固定）
-    const sphereGeo = new THREE.SphereGeometry(0.3, 16, 16);
-    
-    // ちび粒子マテリアル（透き通る質感）
+
+    // ちび粒子ジオメトリ（サイズ一律）
+    const sphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
     const particleMat = new THREE.MeshPhongMaterial({
       color: 0x7ef1d3,
       emissive: 0x052218,
-      shininess: 100,
+      shininess: 90,
       transparent: true,
       opacity: 0.85
     });
 
-    // 群全体の「中心（定常波の核となる位置）」を記憶するベクトル
-    let mesoCenter = new THREE.Vector3(0, 0, 0);
-
     class ChibiParticle {
-      constructor(x, y, z) {
+      constructor(x, y, z, initialVel) {
         this.mesh = new THREE.Mesh(sphereGeo, particleMat.clone());
         this.mesh.position.set(x, y, z);
         
-        // サイズ変更は行わず、わずかな個性付け（色ブレ）のみ
-        this.mesh.material.color.setHSL(0.42 + Math.random() * 0.15, 0.85, 0.65);
+        // 色にグラデーション要素を保持
+        this.mesh.material.color.setHSL(0.40 + Math.random() * 0.18, 0.8, 0.6);
 
-        // 初期速度
-        this.velocity = new THREE.Vector3(
-          (Math.random() - 0.5) * 0.3,
-          (Math.random() - 0.5) * 0.3,
-          (Math.random() - 0.5) * 0.1
-        );
+        // 初速（操作時の入力ベクトルを継承）
+        this.velocity = initialVel.clone().add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.15,
+          (Math.random() - 0.5) * 0.15,
+          (Math.random() - 0.5) * 0.05
+        ));
+
+        // 寿命設定（多層的に長くしてスケールアップを許容）
         this.life = 1.0;
-        this.decay = 0.0015 + Math.random() * 0.002;
+        this.decay = 0.0012 + Math.random() * 0.0015; // 程よい持続力
       }
 
-      update(centerPoint) {
-        // --- 粒子自体の相互作用・流動計算 ---
+      // 近接粒子との「局所ルール（ボイド）」の計算
+      applyFlockingRule(neighbors) {
+        if (neighbors.length === 0) return;
 
-        // 1. 群れの中心（メゾ・定常波の発生場所）に引き寄せられるベクトル
-        const toCenter = new THREE.Vector3().subVectors(centerPoint, this.mesh.position);
-        const distSq = toCenter.lengthSq() + 0.1;
-        
-        // 近づきすぎると反発し、離れすぎると引き寄せる（密度の定常化）
-        const forceMagnitude = (distSq - 9.0) * 0.003; 
-        toCenter.normalize().multiplyScalar(forceMagnitude);
+        const cohesion = new THREE.Vector3();   // 結合（仲間へ引き寄せる）
+        const separation = new THREE.Vector3(); // 分離（近すぎると反発）
+        const alignment = new THREE.Vector3();  // 整列（仲間の移動方向に同調）
 
-        // 2. 渦を作る旋回成分（ウネリの角運動量）
-        const vortex = new THREE.Vector3(-toCenter.y, toCenter.x, 0).multiplyScalar(0.2);
+        let count = 0;
 
-        // 3. 合成して速度更新
-        this.velocity.add(toCenter);
-        this.velocity.add(vortex);
-        this.velocity.multiplyScalar(0.95); // 粘性・流体抵抗
-        
+        for (let i = 0; i < neighbors.length; i++) {
+          const other = neighbors[i];
+          const dist = this.mesh.position.distanceTo(other.mesh.position);
+
+          if (dist > 0 && dist < 4.5) { // 認識範囲（近傍半径）
+            // 結合の累積
+            cohesion.add(other.mesh.position);
+
+            // 整列の累積
+            alignment.add(other.velocity);
+
+            // 分離（距離が近いほど強く押し返す）
+            if (dist < 1.1) {
+              const pushAway = new THREE.Vector3().subVectors(this.mesh.position, other.mesh.position);
+              pushAway.normalize().divideScalar(dist); // 距離の反比例
+              separation.add(pushAway);
+            }
+
+            count++;
+          }
+        }
+
+        if (count > 0) {
+          // 1. 結合: 近傍群の平均位置へ緩やかに力（重力）を加える
+          cohesion.divideScalar(count);
+          const cohesionForce = new THREE.Vector3().subVectors(cohesion, this.mesh.position).multiplyScalar(0.008);
+          this.velocity.add(cohesionForce);
+
+          // 2. 整列: 群れの流動方向に同調する
+          alignment.divideScalar(count);
+          alignment.multiplyScalar(0.04);
+          this.velocity.add(alignment);
+
+          // 3. 分離: 混雑を避ける力を加える
+          separation.multiplyScalar(0.035);
+          this.velocity.add(separation);
+        }
+      }
+
+      update() {
+        // 速度減衰（流体抵抗）
+        this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
-        // 4. 生死サイクルと透明度
+        // 生死と衰退
         this.life -= this.decay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
 
@@ -192,10 +220,11 @@
     }
 
     // ==========================================
-    // 4. ユーザー操作（iOS/Android Touch対応）
+    // 4. ユーザー入力とエネルギーの注入
     // ==========================================
     let isInteracting = false;
-    let lastSpawnTime = 0;
+    let lastPos = new THREE.Vector3();
+    let dragVelocity = new THREE.Vector3();
 
     function getPointerPos(e) {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -208,22 +237,28 @@
     }
 
     function onPointerDown(e) {
-      // タッチ開始時にオーディオを有効化（iOS対策）
       initAudio();
-      
       isInteracting = true;
       getPointerPos(e);
-      spawnParticles(intersectPoint, 6);
+      lastPos.copy(intersectPoint);
+      dragVelocity.set(0, 0, 0);
+
+      // タップ時：周囲に円状にばら撒く（新しい粒の芽）
+      spawnCluster(intersectPoint, 8, new THREE.Vector3());
     }
 
     function onPointerMove(e) {
       if (!isInteracting) return;
       getPointerPos(e);
-      
-      const now = performance.now();
-      if (now - lastSpawnTime > 45) { // 連続生成の間隔
-        spawnParticles(intersectPoint, 3);
-        lastSpawnTime = now;
+
+      // ドラッグ速度（運動量）の算出
+      dragVelocity.subVectors(intersectPoint, lastPos);
+
+      // 移動量に応じて粒子を生成（なぞった軌跡が巨大な龍のようになる）
+      if (dragVelocity.lengthSq() > 0.05) {
+        const count = Math.min(Math.floor(dragVelocity.length() * 5) + 2, 8);
+        spawnCluster(intersectPoint, count, dragVelocity.clone().multiplyScalar(0.3));
+        lastPos.copy(intersectPoint);
       }
     }
 
@@ -231,33 +266,33 @@
       isInteracting = false;
     }
 
-    function spawnParticles(pos, count) {
+    function spawnCluster(pos, count, impulse) {
       for (let i = 0; i < count; i++) {
         if (particles.length >= MAX_PARTICLES) {
           const oldest = particles.shift();
           oldest.destroy();
         }
-        
+
         const offset = new THREE.Vector3(
-          (Math.random() - 0.5) * 1.8,
-          (Math.random() - 0.5) * 1.8,
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * 1.5,
           (Math.random() - 0.5) * 0.5
         );
         const spawnPos = pos.clone().add(offset);
-        const p = new ChibiParticle(spawnPos.x, spawnPos.y, spawnPos.z);
-        
+        const p = new ChibiParticle(spawnPos.x, spawnPos.y, spawnPos.z, impulse);
+
         scene.add(p.mesh);
         particles.push(p);
       }
-      playPokoSound(0.85 + Math.random() * 0.35);
+      
+      const speedPitch = 0.8 + Math.min(impulse.length() * 1.2, 0.8);
+      playPokoSound(speedPitch);
     }
 
-    // イベント登録（iOS/PointerEvents両対応）
+    // イベント登録
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    
-    // iOS Safari のタッチイベント直接拾い
     window.addEventListener('touchstart', (e) => { initAudio(); }, { passive: true });
 
     window.addEventListener('resize', () => {
@@ -267,38 +302,46 @@
     });
 
     // ==========================================
-    // 5. メインループ（定常波の自動計算）
+    // 5. メイン計算ループ（創発アニメーション）
     // ==========================================
     function animate() {
       requestAnimationFrame(animate);
 
-      // 1. 全粒子の平均座標から「メゾの中心（定常波の中心）」を計算
-      if (particles.length > 0) {
-        const sumPos = new THREE.Vector3();
-        for (let i = 0; i < particles.length; i++) {
-          sumPos.add(particles[i].mesh.position);
+      // 1. 各粒子の相互作用（近隣チェック）の計算
+      // パフォーマンス最適化のため、全対全比較ではなく近接ルールを適用
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        
+        // 周囲の粒子を抽出（計算負荷軽減のためインデックス近傍＋ランダムサンプル）
+        const neighbors = [];
+        for (let j = 0; j < particles.length; j += 2) { 
+          if (i !== j) neighbors.push(particles[j]);
         }
-        const currentCenter = sumPos.divideScalar(particles.length);
-        // 定常波の中心を緩やかに補間移動（滑らかなうねりの移動）
-        mesoCenter.lerp(currentCenter, 0.08);
-      } else {
-        mesoCenter.lerp(new THREE.Vector3(0, 0, 0), 0.05);
+        
+        p.applyFlockingRule(neighbors);
       }
 
-      // 2. 粒子の更新
+      // 2. 位置更新と更新後の生存チェック
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        const alive = p.update(mesoCenter);
-        
+        const alive = p.update();
+
         if (!alive) {
           p.destroy();
           particles.splice(i, 1);
         }
       }
 
-      // 3. ポイントライトを中心（うねりの濃い部分）へ追従させ、密度感を強調
-      mainLight.position.lerp(mesoCenter, 0.1);
-      mainLight.position.z = 10;
+      // 3. 全粒子の平均位置へライトをスムーズに動かし、群集のツヤ感を強調
+      if (particles.length > 0) {
+        const avgPos = new THREE.Vector3();
+        for (let i = 0; i < particles.length; i++) {
+          avgPos.add(particles[i].mesh.position);
+        }
+        avgPos.divideScalar(particles.length);
+        mainLight.position.lerp(avgPos, 0.05);
+        mainLight.position.z = 20;
+      }
 
       renderer.render(scene, camera);
     }
