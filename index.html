@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Emergent Swarm Prototype</title>
+  <title>UNERI Flow - Interactive Swarm</title>
   <style>
     body {
       margin: 0;
@@ -30,31 +30,36 @@
     }
     p {
       margin: 0;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       opacity: 0.8;
+      line-height: 1.4;
     }
   </style>
-  <!-- Three.js (3Dグラフィックスライブラリ) -->
+  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
   <div id="ui-container">
-    <h1>UNERI Flow - Emergence</h1>
-    <p>なぞる・叩く・速度を変えることで、無限のカタチが立ち現れます</p>
+    <h1>UNERI Flow</h1>
+    <p>ドラッグ：うねりの注入<br>ピンチ / ホイール：画面の拡大・縮小</p>
   </div>
 
   <script>
     // ==========================================
-    // 1. Web Audio API (iOS Safari対応)
+    // 1. Web Audio API (発生音 ＋ 移動流動音)
     // ==========================================
     let audioCtx = null;
+    let flowOsc = null;      // 移動音用オシレーター
+    let flowGain = null;     // 移動音用ゲイン（音量）
+    let flowFilter = null;   // 音質をマイルドにするフィルター
 
     function initAudio() {
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) {
           audioCtx = new AudioContextClass();
+          setupFlowSound();
         }
       }
       if (audioCtx && audioCtx.state === 'suspended') {
@@ -62,7 +67,52 @@
       }
     }
 
-    // 動きの速さ（エネルギー量）に応じたポコポコ音
+    // アンビエントな「移動音」の持続的セットアップ
+    function setupFlowSound() {
+      if (!audioCtx) return;
+
+      flowOsc = audioCtx.createOscillator();
+      flowGain = audioCtx.createGain();
+      flowFilter = audioCtx.createBiquadFilter();
+
+      // なめらかで温かみのある三角波を使用
+      flowOsc.type = 'triangle';
+      flowOsc.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+      // 低音域を強調するローパスフィルター
+      flowFilter.type = 'lowpass';
+      flowFilter.frequency.setValueAtTime(400, audioCtx.currentTime);
+
+      // 最初は無音
+      flowGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+
+      flowOsc.connect(flowFilter);
+      flowFilter.connect(flowGain);
+      flowGain.connect(audioCtx.destination);
+
+      flowOsc.start();
+    }
+
+    // 全粒子の移動速度・密度に合わせて移動音のピッチと音量を更新
+    function updateFlowSound(avgSpeed, particleCount) {
+      if (!audioCtx || !flowOsc || audioCtx.state !== 'running') return;
+
+      if (particleCount === 0) {
+        flowGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.1);
+        return;
+      }
+
+      // 速度に応じて周波数（ピッチ）を可変 (100Hz 〜 450Hz)
+      const targetFreq = 100 + Math.min(avgSpeed * 600, 350);
+      flowOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+      flowFilter.frequency.setTargetAtTime(targetFreq * 2.5, audioCtx.currentTime, 0.1);
+
+      // 「ごくごく僅かな」音量に制限 (最大 0.04 程度)
+      const targetGain = Math.min(0.002 + (avgSpeed * 0.05) + (particleCount * 0.00002), 0.04);
+      flowGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+    }
+
+    // ちび粒子発生時の「ポコッ」という可愛らしい発生音
     function playPokoSound(pitchRatio = 1.0) {
       if (!audioCtx || audioCtx.state !== 'running') return;
 
@@ -70,11 +120,11 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        const baseFreq = 220 + Math.random() * 280;
+        const baseFreq = 260 + Math.random() * 200;
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5 * pitchRatio, audioCtx.currentTime + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.06);
 
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
 
         osc.connect(gain);
@@ -83,7 +133,7 @@
         osc.start();
         osc.stop(audioCtx.currentTime + 0.07);
       } catch (e) {
-        console.error("Audio error:", e);
+        console.error("Audio play error:", e);
       }
     }
 
@@ -91,10 +141,11 @@
     // 2. Three.js セットアップ
     // ==========================================
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0d0f18, 0.02);
+    scene.fog = new THREE.FogExp2(0x0d0f18, 0.015);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 30);
+    let targetZoom = 30; // カメラのZ位置（ズーム目標値）
+    camera.position.set(0, 0, targetZoom);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -102,10 +153,10 @@
     document.body.appendChild(renderer.domElement);
 
     // ライティング
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.PointLight(0x7ef1d3, 2.5, 80);
+    const mainLight = new THREE.PointLight(0x7ef1d3, 2.5, 100);
     mainLight.position.set(0, 0, 20);
     scene.add(mainLight);
 
@@ -116,12 +167,11 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. ボトムアップ型・相互作用粒子アルゴリズム
+    // 3. 粒子・群集モデル
     // ==========================================
-    const MAX_PARTICLES = 1800; // 凝集体のダイナミックな拡大に対応
+    const MAX_PARTICLES = 1600;
     const particles = [];
 
-    // ちび粒子ジオメトリ（サイズ一律）
     const sphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
     const particleMat = new THREE.MeshPhongMaterial({
       color: 0x7ef1d3,
@@ -136,76 +186,72 @@
         this.mesh = new THREE.Mesh(sphereGeo, particleMat.clone());
         this.mesh.position.set(x, y, z);
         
-        // 色にグラデーション要素を保持
-        this.mesh.material.color.setHSL(0.40 + Math.random() * 0.18, 0.8, 0.6);
+        this.mesh.material.color.setHSL(0.40 + Math.random() * 0.18, 0.8, 0.65);
 
-        // 初速（操作時の入力ベクトルを継承）
         this.velocity = initialVel.clone().add(new THREE.Vector3(
           (Math.random() - 0.5) * 0.15,
           (Math.random() - 0.5) * 0.15,
           (Math.random() - 0.5) * 0.05
         ));
 
-        // 寿命設定（多層的に長くしてスケールアップを許容）
         this.life = 1.0;
-        this.decay = 0.0012 + Math.random() * 0.0015; // 程よい持続力
+        this.decay = 0.001 + Math.random() * 0.0012; // 画面内に留まるよう長めの生存期間
       }
 
-      // 近接粒子との「局所ルール（ボイド）」の計算
-      applyFlockingRule(neighbors) {
-        if (neighbors.length === 0) return;
-
-        const cohesion = new THREE.Vector3();   // 結合（仲間へ引き寄せる）
-        const separation = new THREE.Vector3(); // 分離（近すぎると反発）
-        const alignment = new THREE.Vector3();  // 整列（仲間の移動方向に同調）
-
+      applyFlockingRule(neighbors, bounds) {
+        const cohesion = new THREE.Vector3();
+        const separation = new THREE.Vector3();
+        const alignment = new THREE.Vector3();
         let count = 0;
 
         for (let i = 0; i < neighbors.length; i++) {
           const other = neighbors[i];
           const dist = this.mesh.position.distanceTo(other.mesh.position);
 
-          if (dist > 0 && dist < 4.5) { // 認識範囲（近傍半径）
-            // 結合の累積
+          if (dist > 0 && dist < 5.0) {
             cohesion.add(other.mesh.position);
-
-            // 整列の累積
             alignment.add(other.velocity);
 
-            // 分離（距離が近いほど強く押し返す）
             if (dist < 1.1) {
               const pushAway = new THREE.Vector3().subVectors(this.mesh.position, other.mesh.position);
-              pushAway.normalize().divideScalar(dist); // 距離の反比例
+              pushAway.normalize().divideScalar(dist);
               separation.add(pushAway);
             }
-
             count++;
           }
         }
 
         if (count > 0) {
-          // 1. 結合: 近傍群の平均位置へ緩やかに力（重力）を加える
           cohesion.divideScalar(count);
-          const cohesionForce = new THREE.Vector3().subVectors(cohesion, this.mesh.position).multiplyScalar(0.008);
+          const cohesionForce = new THREE.Vector3().subVectors(cohesion, this.mesh.position).multiplyScalar(0.007);
           this.velocity.add(cohesionForce);
 
-          // 2. 整列: 群れの流動方向に同調する
-          alignment.divideScalar(count);
-          alignment.multiplyScalar(0.04);
+          alignment.divideScalar(count).multiplyScalar(0.035);
           this.velocity.add(alignment);
 
-          // 3. 分離: 混雑を避ける力を加える
           separation.multiplyScalar(0.035);
           this.velocity.add(separation);
+        }
+
+        // --- 画面端での「ソフトな境界返し（バウンダリ）」 ---
+        // カメラの描画限界付近に行くと、自然に中央へと向きを変える
+        const marginX = bounds.x;
+        const marginY = bounds.y;
+
+        if (Math.abs(this.mesh.position.x) > marginX) {
+          const pushCenter = -Math.sign(this.mesh.position.x) * 0.012 * (Math.abs(this.mesh.position.x) - marginX);
+          this.velocity.x += pushCenter;
+        }
+        if (Math.abs(this.mesh.position.y) > marginY) {
+          const pushCenter = -Math.sign(this.mesh.position.y) * 0.012 * (Math.abs(this.mesh.position.y) - marginY);
+          this.velocity.y += pushCenter;
         }
       }
 
       update() {
-        // 速度減衰（流体抵抗）
         this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
-        // 生死と衰退
         this.life -= this.decay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
 
@@ -220,11 +266,12 @@
     }
 
     // ==========================================
-    // 4. ユーザー入力とエネルギーの注入
+    // 4. 操作（ピンチズーム・ホイール・ドラッグ）
     // ==========================================
     let isInteracting = false;
     let lastPos = new THREE.Vector3();
     let dragVelocity = new THREE.Vector3();
+    let initialPinchDistance = null;
 
     function getPointerPos(e) {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -236,35 +283,70 @@
       raycaster.ray.intersectPlane(mousePlane, intersectPoint);
     }
 
+    // 2点タッチ間距離計算（ピンチジェスチャー用）
+    function getTouchDistance(e) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
     function onPointerDown(e) {
       initAudio();
+
+      if (e.touches && e.touches.length === 2) {
+        // 2本指タップ ➔ ピンチズーム開始
+        isInteracting = false;
+        initialPinchDistance = getTouchDistance(e);
+        return;
+      }
+
       isInteracting = true;
       getPointerPos(e);
       lastPos.copy(intersectPoint);
       dragVelocity.set(0, 0, 0);
 
-      // タップ時：周囲に円状にばら撒く（新しい粒の芽）
-      spawnCluster(intersectPoint, 8, new THREE.Vector3());
+      spawnCluster(intersectPoint, 6, new THREE.Vector3());
     }
 
     function onPointerMove(e) {
+      // ピンチズーム処理 (スマホ)
+      if (e.touches && e.touches.length === 2) {
+        if (initialPinchDistance) {
+          const newDistance = getTouchDistance(e);
+          const factor = (initialPinchDistance - newDistance) * 0.08;
+          targetZoom = Math.max(10, Math.min(80, targetZoom + factor));
+          initialPinchDistance = newDistance;
+        }
+        return;
+      }
+
       if (!isInteracting) return;
       getPointerPos(e);
 
-      // ドラッグ速度（運動量）の算出
       dragVelocity.subVectors(intersectPoint, lastPos);
 
-      // 移動量に応じて粒子を生成（なぞった軌跡が巨大な龍のようになる）
-      if (dragVelocity.lengthSq() > 0.05) {
-        const count = Math.min(Math.floor(dragVelocity.length() * 5) + 2, 8);
+      if (dragVelocity.lengthSq() > 0.04) {
+        const count = Math.min(Math.floor(dragVelocity.length() * 5) + 2, 7);
         spawnCluster(intersectPoint, count, dragVelocity.clone().multiplyScalar(0.3));
         lastPos.copy(intersectPoint);
       }
     }
 
-    function onPointerUp() {
-      isInteracting = false;
+    function onPointerUp(e) {
+      if (e.touches && e.touches.length < 2) {
+        initialPinchDistance = null;
+      }
+      if (!e.touches || e.touches.length === 0) {
+        isInteracting = false;
+      }
     }
+
+    // PCマウスホイール（ズームイン・アウト）
+    window.addEventListener('wheel', (e) => {
+      initAudio();
+      targetZoom += e.deltaY * 0.03;
+      targetZoom = Math.max(10, Math.min(80, targetZoom)); // ズーム限界範囲設定
+    }, { passive: true });
 
     function spawnCluster(pos, count, impulse) {
       for (let i = 0; i < count; i++) {
@@ -285,7 +367,7 @@
         particles.push(p);
       }
       
-      const speedPitch = 0.8 + Math.min(impulse.length() * 1.2, 0.8);
+      const speedPitch = 0.85 + Math.min(impulse.length() * 1.2, 0.7);
       playPokoSound(speedPitch);
     }
 
@@ -293,7 +375,14 @@
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('touchstart', (e) => { initAudio(); }, { passive: true });
+    
+    // iOS/Touchイベント明示登録
+    window.addEventListener('touchstart', (e) => {
+      initAudio();
+      if (e.touches.length === 2) initialPinchDistance = getTouchDistance(e);
+    }, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp, { passive: true });
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -302,26 +391,35 @@
     });
 
     // ==========================================
-    // 5. メイン計算ループ（創発アニメーション）
+    // 5. メイン計算ループ
     // ==========================================
     function animate() {
       requestAnimationFrame(animate);
 
-      // 1. 各粒子の相互作用（近隣チェック）の計算
-      // パフォーマンス最適化のため、全対全比較ではなく近接ルールを適用
+      // カメラのズーム（画角）をスムーズに補間
+      camera.position.z += (targetZoom - camera.position.z) * 0.1;
+
+      // 現在のカメラ距離に基づく可視領域（画面端）の限界値を動的計算
+      const vFOV = THREE.MathUtils.degToRad(camera.fov);
+      const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
+      const visibleWidth = visibleHeight * camera.aspect;
+      const bounds = { x: (visibleWidth / 2) * 0.82, y: (visibleHeight / 2) * 0.82 };
+
+      let totalSpeed = 0;
+
+      // 近接相互作用計算
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         
-        // 周囲の粒子を抽出（計算負荷軽減のためインデックス近傍＋ランダムサンプル）
         const neighbors = [];
         for (let j = 0; j < particles.length; j += 2) { 
           if (i !== j) neighbors.push(particles[j]);
         }
         
-        p.applyFlockingRule(neighbors);
+        p.applyFlockingRule(neighbors, bounds);
       }
 
-      // 2. 位置更新と更新後の生存チェック
+      // 位置更新・生存判定・運動量計算
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         const alive = p.update();
@@ -329,10 +427,16 @@
         if (!alive) {
           p.destroy();
           particles.splice(i, 1);
+        } else {
+          totalSpeed += p.velocity.length();
         }
       }
 
-      // 3. 全粒子の平均位置へライトをスムーズに動かし、群集のツヤ感を強調
+      // 移動音（アンビエント音響）の更新
+      const avgSpeed = particles.length > 0 ? totalSpeed / particles.length : 0;
+      updateFlowSound(avgSpeed, particles.length);
+
+      // ライティングの追従
       if (particles.length > 0) {
         const avgPos = new THREE.Vector3();
         for (let i = 0; i < particles.length; i++) {
@@ -340,7 +444,7 @@
         }
         avgPos.divideScalar(particles.length);
         mainLight.position.lerp(avgPos, 0.05);
-        mainLight.position.z = 20;
+        mainLight.position.z = camera.position.z * 0.6;
       }
 
       renderer.render(scene, camera);
