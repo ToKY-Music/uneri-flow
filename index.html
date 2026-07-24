@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Interactive Swarm</title>
+  <title>UNERI Flow - Emergent Particle Audio</title>
   <style>
     body {
       margin: 0;
@@ -47,69 +47,27 @@
 
   <script>
     // ==========================================
-    // 1. Web Audio API (発生音 ＋ 移動流動音)
+    // 1. Web Audio API セットアップ
     // ==========================================
     let audioCtx = null;
-    let flowOsc = null;      // 移動音用オシレーター
-    let flowGain = null;     // 移動音用ゲイン（音量）
-    let flowFilter = null;   // 音質をマイルドにするフィルター
+    let masterFilter = null; // 全体のサウンドをマイルドにするフィルター
 
     function initAudio() {
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) {
           audioCtx = new AudioContextClass();
-          setupFlowSound();
+          
+          // 低音〜中音域を活かすローパスフィルター
+          masterFilter = audioCtx.createBiquadFilter();
+          masterFilter.type = 'lowpass';
+          masterFilter.frequency.setValueAtTime(800, audioCtx.currentTime);
+          masterFilter.connect(audioCtx.destination);
         }
       }
       if (audioCtx && audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
-    }
-
-    // アンビエントな「移動音」の持続的セットアップ
-    function setupFlowSound() {
-      if (!audioCtx) return;
-
-      flowOsc = audioCtx.createOscillator();
-      flowGain = audioCtx.createGain();
-      flowFilter = audioCtx.createBiquadFilter();
-
-      // なめらかで温かみのある三角波を使用
-      flowOsc.type = 'triangle';
-      flowOsc.frequency.setValueAtTime(120, audioCtx.currentTime);
-
-      // 低音域を強調するローパスフィルター
-      flowFilter.type = 'lowpass';
-      flowFilter.frequency.setValueAtTime(400, audioCtx.currentTime);
-
-      // 最初は無音
-      flowGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-
-      flowOsc.connect(flowFilter);
-      flowFilter.connect(flowGain);
-      flowGain.connect(audioCtx.destination);
-
-      flowOsc.start();
-    }
-
-    // 全粒子の移動速度・密度に合わせて移動音のピッチと音量を更新
-    function updateFlowSound(avgSpeed, particleCount) {
-      if (!audioCtx || !flowOsc || audioCtx.state !== 'running') return;
-
-      if (particleCount === 0) {
-        flowGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.1);
-        return;
-      }
-
-      // 速度に応じて周波数（ピッチ）を可変 (100Hz 〜 450Hz)
-      const targetFreq = 100 + Math.min(avgSpeed * 600, 350);
-      flowOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
-      flowFilter.frequency.setTargetAtTime(targetFreq * 2.5, audioCtx.currentTime, 0.1);
-
-      // 「ごくごく僅かな」音量に制限 (最大 0.04 程度)
-      const targetGain = Math.min(0.002 + (avgSpeed * 0.05) + (particleCount * 0.00002), 0.04);
-      flowGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
     }
 
     // ちび粒子発生時の「ポコッ」という可愛らしい発生音
@@ -128,7 +86,7 @@
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
 
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        gain.connect(masterFilter || audioCtx.destination);
 
         osc.start();
         osc.stop(audioCtx.currentTime + 0.07);
@@ -144,7 +102,7 @@
     scene.fog = new THREE.FogExp2(0x0d0f18, 0.015);
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    let targetZoom = 30; // カメラのZ位置（ズーム目標値）
+    let targetZoom = 30;
     camera.position.set(0, 0, targetZoom);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -167,9 +125,9 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 粒子・群集モデル
+    // 3. 各粒子が独立音源を持つ群集モデル
     // ==========================================
-    const MAX_PARTICLES = 1600;
+    const MAX_PARTICLES = 1400; // オーディオパフォーマンスとのバランスをとった最大数
     const particles = [];
 
     const sphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
@@ -195,7 +153,32 @@
         ));
 
         this.life = 1.0;
-        this.decay = 0.001 + Math.random() * 0.0012; // 画面内に留まるよう長めの生存期間
+        this.decay = 0.001 + Math.random() * 0.0012;
+
+        // --- ① 一つ一つの粒子専用の微小音源（Web Audio）---
+        this.baseFreq = 80 + Math.random() * 120; // 粒子ごとの個性（周波数の個体差）
+        this.osc = null;
+        this.gain = null;
+
+        if (audioCtx && audioCtx.state === 'running') {
+          try {
+            this.osc = audioCtx.createOscillator();
+            this.gain = audioCtx.createGain();
+
+            // ザーッというざらつきを生む三角波
+            this.osc.type = 'triangle';
+            this.osc.frequency.setValueAtTime(this.baseFreq, audioCtx.currentTime);
+
+            // 音源は「ごく微弱」に設定（数千個合わさってちょうど良い音量に）
+            this.gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+
+            this.osc.connect(this.gain);
+            this.gain.connect(masterFilter || audioCtx.destination);
+            this.osc.start();
+          } catch (e) {
+            this.osc = null;
+          }
+        }
       }
 
       applyFlockingRule(neighbors, bounds) {
@@ -233,8 +216,7 @@
           this.velocity.add(separation);
         }
 
-        // --- 画面端での「ソフトな境界返し（バウンダリ）」 ---
-        // カメラの描画限界付近に行くと、自然に中央へと向きを変える
+        // ソフトバウンダリ（画面境界）
         const marginX = bounds.x;
         const marginY = bounds.y;
 
@@ -252,13 +234,40 @@
         this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
+        // 寿命と透明度
         this.life -= this.decay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
+
+        // --- 個別粒子の移動速度に応じた「リアルタイム音高（ピッチ）・音量変化」 ---
+        const speed = this.velocity.length();
+        if (this.osc && audioCtx && audioCtx.state === 'running') {
+          // 速度が上がると音高が高くなる (基本周波数 ＋ 速度補正)
+          const currentFreq = this.baseFreq + (speed * 450);
+          this.osc.frequency.setTargetAtTime(currentFreq, audioCtx.currentTime, 0.05);
+
+          // 速度と寿命に応じてごく微弱に音量を制御
+          const targetVol = Math.min(0.0005 + (speed * 0.008), 0.004) * Math.max(0, this.life);
+          this.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
+        }
 
         return this.life > 0;
       }
 
       destroy() {
+        // オシレーターの安全な破棄
+        if (this.osc) {
+          try {
+            this.gain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.02);
+            setTimeout(() => {
+              if (this.osc) {
+                this.osc.stop();
+                this.osc.disconnect();
+                this.gain.disconnect();
+              }
+            }, 30);
+          } catch (e) {}
+        }
+
         scene.remove(this.mesh);
         this.mesh.geometry.dispose();
         this.mesh.material.dispose();
@@ -283,7 +292,6 @@
       raycaster.ray.intersectPlane(mousePlane, intersectPoint);
     }
 
-    // 2点タッチ間距離計算（ピンチジェスチャー用）
     function getTouchDistance(e) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -294,7 +302,6 @@
       initAudio();
 
       if (e.touches && e.touches.length === 2) {
-        // 2本指タップ ➔ ピンチズーム開始
         isInteracting = false;
         initialPinchDistance = getTouchDistance(e);
         return;
@@ -309,7 +316,6 @@
     }
 
     function onPointerMove(e) {
-      // ピンチズーム処理 (スマホ)
       if (e.touches && e.touches.length === 2) {
         if (initialPinchDistance) {
           const newDistance = getTouchDistance(e);
@@ -341,11 +347,10 @@
       }
     }
 
-    // PCマウスホイール（ズームイン・アウト）
     window.addEventListener('wheel', (e) => {
       initAudio();
       targetZoom += e.deltaY * 0.03;
-      targetZoom = Math.max(10, Math.min(80, targetZoom)); // ズーム限界範囲設定
+      targetZoom = Math.max(10, Math.min(80, targetZoom));
     }, { passive: true });
 
     function spawnCluster(pos, count, impulse) {
@@ -376,7 +381,6 @@
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     
-    // iOS/Touchイベント明示登録
     window.addEventListener('touchstart', (e) => {
       initAudio();
       if (e.touches.length === 2) initialPinchDistance = getTouchDistance(e);
@@ -396,16 +400,14 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // カメラのズーム（画角）をスムーズに補間
+      // カメラズーム補間
       camera.position.z += (targetZoom - camera.position.z) * 0.1;
 
-      // 現在のカメラ距離に基づく可視領域（画面端）の限界値を動的計算
+      // 限界境界値の計算
       const vFOV = THREE.MathUtils.degToRad(camera.fov);
       const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
       const visibleWidth = visibleHeight * camera.aspect;
       const bounds = { x: (visibleWidth / 2) * 0.82, y: (visibleHeight / 2) * 0.82 };
-
-      let totalSpeed = 0;
 
       // 近接相互作用計算
       for (let i = 0; i < particles.length; i++) {
@@ -419,7 +421,7 @@
         p.applyFlockingRule(neighbors, bounds);
       }
 
-      // 位置更新・生存判定・運動量計算
+      // 位置・音響更新・生存判定
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         const alive = p.update();
@@ -427,16 +429,10 @@
         if (!alive) {
           p.destroy();
           particles.splice(i, 1);
-        } else {
-          totalSpeed += p.velocity.length();
         }
       }
 
-      // 移動音（アンビエント音響）の更新
-      const avgSpeed = particles.length > 0 ? totalSpeed / particles.length : 0;
-      updateFlowSound(avgSpeed, particles.length);
-
-      // ライティングの追従
+      // ライティング追従
       if (particles.length > 0) {
         const avgPos = new THREE.Vector3();
         for (let i = 0; i < particles.length; i++) {
