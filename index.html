@@ -19,20 +19,44 @@
       top: 20px;
       left: 20px;
       color: #e0f0ff;
-      pointer-events: none;
+      pointer-events: auto; /* UIの操作を可能に */
       text-shadow: 0 0 8px rgba(0,255,200,0.5);
+      background: rgba(13, 15, 24, 0.65);
+      padding: 14px 18px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(126, 241, 211, 0.2);
+      max-width: 280px;
     }
     h1 {
       margin: 0 0 6px 0;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       letter-spacing: 0.1em;
       color: #7ef1d3;
     }
     p {
-      margin: 0;
-      font-size: 0.82rem;
+      margin: 0 0 12px 0;
+      font-size: 0.78rem;
       opacity: 0.8;
       line-height: 1.4;
+    }
+    .control-group {
+      margin-bottom: 10px;
+    }
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #a0e0d0;
+      margin-bottom: 3px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #7ef1d3;
+      cursor: pointer;
     }
   </style>
   <!-- Three.js -->
@@ -42,10 +66,47 @@
 
   <div id="ui-container">
     <h1>UNERI Flow</h1>
-    <p>ドラッグ：うねりの注入<br>ピンチ / ホイール：画面の拡大・縮小</p>
+    <p>ドラッグ：うねり注入 / ホイール：ズーム</p>
+
+    <div class="control-group">
+      <label>
+        <span>指数減衰 (距離の影響度)</span>
+        <span id="exp-val">2.2</span>
+      </label>
+      <input type="range" id="exp-slider" min="1.0" max="3.5" step="0.1" value="2.2">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>閾値ブレーキ (孤立判定)</span>
+        <span id="thresh-val">0.0010</span>
+      </label>
+      <input type="range" id="thresh-slider" min="0.0000" max="0.0050" step="0.0002" value="0.0010">
+    </div>
   </div>
 
   <script>
+    // ==========================================
+    // 0. スライダー・パラメータ制御
+    // ==========================================
+    let expFactor = 2.2;
+    let thresholdValue = 0.0010;
+
+    const expSlider = document.getElementById('exp-slider');
+    const expValDisplay = document.getElementById('exp-val');
+    const threshSlider = document.getElementById('thresh-slider');
+    const threshValDisplay = document.getElementById('thresh-val');
+
+    expSlider.addEventListener('input', (e) => {
+      expFactor = parseFloat(e.target.value);
+      expValDisplay.textContent = expFactor.toFixed(1);
+    });
+
+    threshSlider.addEventListener('input', (e) => {
+      thresholdValue = parseFloat(e.target.value);
+      threshValDisplay.textContent = thresholdValue.toFixed(4);
+    });
+
     // ==========================================
     // 1. Web Audio API セットアップ
     // ==========================================
@@ -123,7 +184,7 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 各粒子が独立音源・指数関数的寿命制御を持つ群集モデル
+    // 3. 各粒子が独立音源・動的寿命制御を持つ群集モデル
     // ==========================================
     const MAX_PARTICLES = 1400;
     const particles = [];
@@ -151,8 +212,7 @@
         ));
 
         this.life = 1.0;
-        // 孤立した粒子はわずか 0.3〜0.5 秒（約20〜30フレーム）で超高速消滅
-        this.baseDecay = 0.040 + Math.random() * 0.008;
+        this.baseDecay = 0.025 + Math.random() * 0.005;
 
         // 音響プロパティ
         this.baseFreq = 80 + Math.random() * 120;
@@ -230,7 +290,7 @@
         this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
-        // --- 強烈な指数関数的距離カーブ＋孤立遮断ロジック ---
+        // --- ユーザー可変パラメーターによる指数関数＆ブレーキコントロール ---
         let proximitySupport = 0;
         const totalCount = allParticles.length;
 
@@ -239,23 +299,21 @@
           if (other !== this) {
             const dist = this.mesh.position.distanceTo(other.mesh.position);
             
-            // 距離の3乗に反比例（超強力な指数関数カーブ）
-            // 距離が離れると一気に効果が0になる
-            const exponentialDist = 1.0 / Math.pow(dist + 0.1, 3);
-            proximitySupport += exponentialDist * 0.0045;
+            // UIスライダー(expFactor)で可変な指数カーブ
+            const exponentialDist = 1.0 / Math.pow(dist + 0.1, expFactor);
+            proximitySupport += exponentialDist * 0.0035;
           }
         }
 
-        // 近接サポートが一定以下（ぽつんと離れた単粒子）の場合は、全体の存在サポートも遮断して即死させる
         let totalSupport = 0;
-        if (proximitySupport > 0.002) {
-          // 密集している時だけ全体の数（指数的重み）も生命サポートに変わる
-          const countSupport = Math.pow(totalCount, 1.2) * 0.00002;
+        // UIスライダー(thresholdValue)で可変な孤立ブレーキ
+        if (proximitySupport > thresholdValue) {
+          const countSupport = Math.pow(totalCount, 1.1) * 0.00003;
           totalSupport = proximitySupport + countSupport;
         }
 
-        // 密集度に応じて最大でほぼ寿命減衰が0（永続化）まで低下
-        const currentDecay = Math.max(0.0002, this.baseDecay - totalSupport);
+        // 密集度に応じて寿命延長
+        const currentDecay = Math.max(0.0003, this.baseDecay - totalSupport);
         
         this.life -= currentDecay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
@@ -318,6 +376,9 @@
     }
 
     function onPointerDown(e) {
+      // UI操作中の場合は粒子を生成しない
+      if (e.target.closest('#ui-container')) return;
+
       initAudio();
 
       if (e.touches && e.touches.length === 2) {
@@ -367,6 +428,7 @@
     }
 
     window.addEventListener('wheel', (e) => {
+      if (e.target.closest('#ui-container')) return;
       initAudio();
       targetZoom += e.deltaY * 0.03;
       targetZoom = Math.max(10, Math.min(80, targetZoom));
@@ -401,6 +463,7 @@
     window.addEventListener('pointerup', onPointerUp);
     
     window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#ui-container')) return;
       initAudio();
       if (e.touches.length === 2) initialPinchDistance = getTouchDistance(e);
     }, { passive: true });
