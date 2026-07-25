@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Emergent Particle Audio & Life Loop (Fixed)</title>
+  <title>UNERI Flow - Emergent Particle Audio & Life Loop</title>
   <style>
     body {
       margin: 0;
@@ -14,6 +14,8 @@
       -webkit-user-select: none;
       user-select: none;
     }
+
+    /* UI Panel Style & Collapse Logic */
     #ui-container {
       position: absolute;
       top: 20px;
@@ -21,34 +23,112 @@
       color: #e0f0ff;
       pointer-events: auto;
       text-shadow: 0 0 8px rgba(0,255,200,0.5);
-      background: rgba(13, 15, 24, 0.75);
-      padding: 14px 18px;
-      border-radius: 12px;
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(126, 241, 211, 0.2);
-      max-width: 300px;
-      max-height: 90vh;
-      overflow-y: auto;
+      background: rgba(13, 15, 24, 0.82);
+      padding: 16px 18px;
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(126, 241, 211, 0.25);
+      width: 260px;
+      max-height: 85vh;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      box-sizing: border-box;
+      overflow: hidden;
     }
+
+    /* 折りたたみ状態 */
+    #ui-container.collapsed {
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      border-radius: 24px;
+      background: rgba(13, 15, 24, 0.9);
+      border-color: rgba(126, 241, 211, 0.6);
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(126, 241, 211, 0.3);
+    }
+
+    .ui-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
     h1 {
-      margin: 0 0 6px 0;
-      font-size: 1.1rem;
+      margin: 0;
+      font-size: 1.05rem;
       letter-spacing: 0.1em;
       color: #7ef1d3;
+      white-space: nowrap;
     }
-    p {
-      margin: 0 0 10px 0;
-      font-size: 0.75rem;
-      opacity: 0.8;
-      line-height: 1.3;
+
+    .concept-sub {
+      margin: 0 0 12px 0;
+      font-size: 0.7rem;
+      color: #90c8b8;
+      line-height: 1.35;
+      letter-spacing: 0.02em;
+      opacity: 0.9;
     }
+
+    /* 畳み込みボタンアイコン */
+    .toggle-btn {
+      background: rgba(126, 241, 211, 0.12);
+      border: 1px solid rgba(126, 241, 211, 0.3);
+      color: #7ef1d3;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle-btn:hover {
+      background: rgba(126, 241, 211, 0.3);
+      transform: scale(1.08);
+    }
+
+    /* 折りたたまれた時に表示されるボタン用アイコン */
+    .collapsed-icon {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: #7ef1d3;
+      animation: pulse-border 2s infinite;
+      border-radius: 50%;
+    }
+
+    #ui-container.collapsed .ui-content,
+    #ui-container.collapsed .ui-header {
+      display: none;
+    }
+
+    #ui-container.collapsed .collapsed-icon {
+      display: flex;
+    }
+
+    @keyframes pulse-border {
+      0% { box-shadow: 0 0 0 0 rgba(126, 241, 211, 0.5); }
+      70% { box-shadow: 0 0 0 10px rgba(126, 241, 211, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(126, 241, 211, 0); }
+    }
+
     .control-group {
       margin-bottom: 8px;
     }
     label {
       display: flex;
       justify-content: space-between;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: #a0e0d0;
       margin-bottom: 2px;
     }
@@ -69,64 +149,88 @@
 <body>
 
   <div id="ui-container">
-    <h1>UNERI Flow</h1>
-    <p>ドラッグ：うねり注入 / ホイール：ズーム</p>
+    <!-- 折畳み時の単独ボタン -->
+    <div class="collapsed-icon" title="メニューを開く">⚙️</div>
 
-    <!-- 既存コントローラー -->
-    <div class="control-group">
-      <label>
-        <span>指数減衰 (距離の影響度)</span>
-        <span id="exp-val">2.2</span>
-      </label>
-      <input type="range" id="exp-slider" min="1.0" max="3.5" step="0.1" value="2.2">
+    <!-- 通常展開時の表示要素 -->
+    <div class="ui-header">
+      <h1>UNERI Flow</h1>
+      <div class="toggle-btn" id="toggle-btn" title="メニューを折りたたむ">─</div>
     </div>
+    
+    <!-- ④ さりげないコンセプト文言 -->
+    <p class="concept-sub">衝突、進化、崩壊。<br>粒子の生態系を『持続』させる調和を見つけ出そう。</p>
 
-    <div class="control-group">
-      <label>
-        <span>閾値ブレーキ (孤立判定)</span>
-        <span id="thresh-val">0.0010</span>
-      </label>
-      <input type="range" id="thresh-slider" min="0.0000" max="0.0050" step="0.0002" value="0.0010">
-    </div>
+    <div class="ui-content">
+      <div class="control-group">
+        <label>
+          <span>指数減衰 (距離の影響度)</span>
+          <span id="exp-val">2.2</span>
+        </label>
+        <input type="range" id="exp-slider" min="1.0" max="3.5" step="0.1" value="2.2">
+      </div>
 
-    <hr>
+      <div class="control-group">
+        <label>
+          <span>閾値ブレーキ (孤立判定)</span>
+          <span id="thresh-val">0.0010</span>
+        </label>
+        <input type="range" id="thresh-slider" min="0.0000" max="0.0050" step="0.0002" value="0.0010">
+      </div>
 
-    <!-- 修正版：生成・進化・分解コントローラー -->
-    <div class="control-group">
-      <label>
-        <span>新粒子の発生しやすさ</span>
-        <span id="react-val">1.0</span>
-      </label>
-      <input type="range" id="react-slider" min="0.0" max="3.0" step="0.1" value="1.0">
-    </div>
+      <hr>
 
-    <div class="control-group">
-      <label>
-        <span>新粒子の分解時間</span>
-        <span id="decay-val">1.0</span>
-      </label>
-      <input type="range" id="decay-slider" min="0.1" max="3.0" step="0.1" value="1.0">
-    </div>
+      <div class="control-group">
+        <label>
+          <span>新粒子の発生しやすさ</span>
+          <span id="react-val">1.0</span>
+        </label>
+        <input type="range" id="react-slider" min="0.0" max="3.0" step="0.1" value="1.0">
+      </div>
 
-    <div class="control-group">
-      <label>
-        <span>大きさ閾値 (限界サイズ)</span>
-        <span id="size-val">1.20</span>
-      </label>
-      <input type="range" id="size-slider" min="0.5" max="2.5" step="0.05" value="1.20">
+      <div class="control-group">
+        <label>
+          <span>新粒子の分解時間</span>
+          <span id="decay-val">1.0</span>
+        </label>
+        <input type="range" id="decay-slider" min="0.1" max="3.0" step="0.1" value="1.0">
+      </div>
+
+      <div class="control-group">
+        <label>
+          <span>大きさ閾値 (限界サイズ)</span>
+          <span id="size-val">1.20</span>
+        </label>
+        <input type="range" id="size-slider" min="0.5" max="2.5" step="0.05" value="1.20">
+      </div>
     </div>
   </div>
 
   <script>
     // ==========================================
-    // 0. スライダー・パラメータ制御
+    // 0. スライダー・UI制御
     // ==========================================
     let expFactor = 2.2;
     let thresholdValue = 0.0010;
-
     let reactivityFactor = 1.0; 
     let decayTimeFactor = 1.0;  
     let sizeLimitThreshold = 1.20; 
+
+    const uiContainer = document.getElementById('ui-container');
+    const toggleBtn = document.getElementById('toggle-btn');
+
+    // ② UIの折りたたみトグル処理
+    function toggleUI(e) {
+      if (e) e.stopPropagation();
+      uiContainer.classList.toggle('collapsed');
+    }
+
+    toggleBtn.addEventListener('click', toggleUI);
+    uiContainer.addEventListener('click', (e) => {
+      if (uiContainer.classList.contains('collapsed')) {
+        toggleUI(e);
+      }
+    });
 
     const expSlider = document.getElementById('exp-slider');
     const expValDisplay = document.getElementById('exp-val');
@@ -166,10 +270,12 @@
     });
 
     // ==========================================
-    // 1. Web Audio API セットアップ
+    // 1. 【③修正】Web Audio API 軽量ボイスプール構造
     // ==========================================
     let audioCtx = null;
     let masterFilter = null;
+    const MAX_VOICES = 8; // 最大8音同時に制限してノイズ・無音化を完全防護
+    const voicePool = [];
 
     function initAudio() {
       if (!audioCtx) {
@@ -179,8 +285,23 @@
           
           masterFilter = audioCtx.createBiquadFilter();
           masterFilter.type = 'lowpass';
-          masterFilter.frequency.setValueAtTime(800, audioCtx.currentTime);
+          masterFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
           masterFilter.connect(audioCtx.destination);
+
+          // 固定ボイスの初期化
+          for (let i = 0; i < MAX_VOICES; i++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+            
+            osc.connect(gain);
+            gain.connect(masterFilter);
+            osc.start();
+
+            voicePool.push({ osc, gain, inUse: false });
+          }
         }
       }
       if (audioCtx && audioCtx.state === 'suspended') {
@@ -188,6 +309,7 @@
       }
     }
 
+    // 短いヒット音（衝突・融合用）
     function playPokoSound(pitchRatio = 1.0) {
       if (!audioCtx || audioCtx.state !== 'running') return;
 
@@ -197,16 +319,16 @@
 
         const baseFreq = 260 + Math.random() * 200;
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.06);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.05);
 
         gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
 
         osc.connect(gain);
         gain.connect(masterFilter || audioCtx.destination);
 
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.07);
+        osc.stop(audioCtx.currentTime + 0.06);
       } catch (e) {}
     }
 
@@ -238,7 +360,7 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 粒子モデル（安全保護プロパティ付き）
+    // 3. 粒子モデル
     // ==========================================
     const MAX_PARTICLES = 1000;
     const particles = [];
@@ -259,7 +381,6 @@
         
         this.type = options.type !== undefined ? options.type : 0;
         
-        // 【修正】大きさの絶対上限（クラッシュ保護）
         const rawRadius = options.radius !== undefined ? options.radius : 0.28;
         this.radius = Math.min(rawRadius, 3.0); 
 
@@ -281,28 +402,9 @@
 
         this.age = 0;
         this.decomposed = false;
-
-        // 【修正】再融合を防ぐクールダウン時間（30フレーム）
         this.fusionCooldown = options.fusionCooldown !== undefined ? options.fusionCooldown : 30;
 
         this.baseFreq = (80 + Math.random() * 120) * Math.pow(0.9, Math.min(this.type, 8));
-        this.osc = null;
-        this.gain = null;
-
-        if (audioCtx && audioCtx.state === 'running') {
-          try {
-            this.osc = audioCtx.createOscillator();
-            this.gain = audioCtx.createGain();
-
-            this.osc.type = 'triangle';
-            this.osc.frequency.setValueAtTime(this.baseFreq, audioCtx.currentTime);
-            this.gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-
-            this.osc.connect(this.gain);
-            this.gain.connect(masterFilter || audioCtx.destination);
-            this.osc.start();
-          } catch (e) {}
-        }
       }
 
       applyFlockingRule(neighbors, bounds) {
@@ -362,11 +464,10 @@
           this.fusionCooldown--;
         }
 
-        // --- 分解判定 ---
-        if (this.type > 0 && !this.decomposed) {
+        // --- 分解判定（合体粒子 type > 0）---
+        if (this.type > 0) {
           let baseDecomposeAge = (200 + this.type * 80) * decayTimeFactor;
           
-          // 大きさ閾値を超えた場合の急激分解
           if (this.radius > sizeLimitThreshold) {
             const overScale = this.radius / sizeLimitThreshold;
             baseDecomposeAge /= Math.max(1.1, Math.pow(overScale, 2));
@@ -376,9 +477,13 @@
             this.decomposed = true;
             return false;
           }
+
+          // 【①修正】合体粒子は「消滅（死）」せず、分解を待つ（不滅の生態系）
+          this.mesh.material.opacity = 0.9;
+          return true; 
         }
 
-        // --- 近接指数ブレーキと生存計算 ---
+        // --- 初期粒子 (type == 0) のみの寿命判定 ---
         let proximitySupport = 0;
         const totalCount = allParticles.length;
 
@@ -401,32 +506,10 @@
         this.life -= currentDecay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
 
-        const speed = this.velocity.length();
-        if (this.osc && audioCtx && audioCtx.state === 'running') {
-          const currentFreq = this.baseFreq + (speed * 450);
-          this.osc.frequency.setTargetAtTime(currentFreq, audioCtx.currentTime, 0.05);
-
-          const targetVol = Math.min(0.0005 + (speed * 0.008), 0.004) * Math.max(0, this.life);
-          this.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
-        }
-
         return this.life > 0;
       }
 
       destroy() {
-        if (this.osc) {
-          try {
-            this.gain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.02);
-            setTimeout(() => {
-              if (this.osc) {
-                this.osc.stop();
-                this.osc.disconnect();
-                this.gain.disconnect();
-              }
-            }, 30);
-          } catch (e) {}
-        }
-
         scene.remove(this.mesh);
         this.mesh.geometry.dispose();
         this.mesh.material.dispose();
@@ -556,13 +639,11 @@
     });
 
     // ==========================================
-    // 5. 【完全修正】安全な衝突判定・融合・構造生成ロジック
+    // 5. 衝突判定・融合・構造生成ロジック
     // ==========================================
     function handleCollisionsAndFusion() {
-      // 0.0の時は完全に発生しない（OFF）
       if (reactivityFactor <= 0.01) return;
 
-      // 【修正】スライダーの最小値で最も発生しにくく（必要速度を高精度設定）
       const requiredSpeed = 0.8 / reactivityFactor; 
 
       for (let i = 0; i < particles.length; i++) {
@@ -584,7 +665,6 @@
               p1.life = 0;
               p2.life = 0;
 
-              // 【安全制限】極端な膨張を防ぐ計算
               const newType = Math.max(p1.type, p2.type) + 1;
               const maxLifeBonus = Math.min(Math.max(p1.lifeBonus, p2.lifeBonus) * 1.15, 2.5);
               const maxRadius = Math.min(Math.max(p1.radius, p2.radius) * 1.1, 2.5);
@@ -598,7 +678,6 @@
 
               playPokoSound(1.2 + Math.min(newType, 10) * 0.1);
 
-              // 誕生直後の再融合防止（30フレームの不応期）
               spawnCluster(fusionPos, 1, fusionVel, {
                 type: newType,
                 radius: maxRadius,
@@ -611,6 +690,33 @@
               break;
             }
           }
+        }
+      }
+    }
+
+    // Dynamic Sound Voice Dispatcher (軽量サウンド管理)
+    function updateAudioVoices() {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+
+      // 速度上位の粒子を選択
+      const activeParticles = particles
+        .slice()
+        .sort((a, b) => b.velocity.lengthSq() - a.velocity.lengthSq())
+        .slice(0, MAX_VOICES);
+
+      for (let i = 0; i < MAX_VOICES; i++) {
+        const voice = voicePool[i];
+        const p = activeParticles[i];
+
+        if (p && p.life > 0) {
+          const speed = p.velocity.length();
+          const targetFreq = p.baseFreq + (speed * 300);
+          const targetVol = Math.min(0.0003 + (speed * 0.005), 0.003) * Math.max(0, p.life);
+
+          voice.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
+          voice.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
+        } else {
+          voice.gain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.08);
         }
       }
     }
@@ -643,7 +749,7 @@
         const p = particles[i];
         const alive = p.update(particles);
 
-        // 【修正】分解時の粒子数爆発を防ぐ安全分裂
+        // 【①修正】合体粒子の分解（分解による自発的循環）
         if (p.decomposed) {
           const parentPos = p.mesh.position.clone();
           const parentVel = p.velocity.clone();
@@ -652,14 +758,13 @@
           p.destroy();
           particles.splice(i, 1);
 
-          // 一度に増えすぎないよう分裂は2個固定・不応期付与
           spawnCluster(parentPos, 2, parentVel.negate().multiplyScalar(0.25), {
             type: prevType,
             radius: Math.max(0.28, p.radius / 1.12),
             hue: p.hue,
             attractionPower: Math.max(0.007, p.attractionPower / 1.2),
             lifeBonus: Math.max(1.0, p.lifeBonus / 1.15),
-            fusionCooldown: 45 // 分解直後の再融合を防ぐ長めの不応期
+            fusionCooldown: 40
           });
           continue;
         }
@@ -669,6 +774,9 @@
           particles.splice(i, 1);
         }
       }
+
+      // 軽量音響の同期更新
+      updateAudioVoices();
 
       if (particles.length > 0) {
         const avgPos = new THREE.Vector3();
