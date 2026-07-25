@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Emergent Particle Audio</title>
+  <title>UNERI Flow - Emergent Particle Audio & Life Loop</title>
   <style>
     body {
       margin: 0;
@@ -50,7 +50,7 @@
     // 1. Web Audio API セットアップ
     // ==========================================
     let audioCtx = null;
-    let masterFilter = null; // 全体のサウンドをマイルドにするフィルター
+    let masterFilter = null;
 
     function initAudio() {
       if (!audioCtx) {
@@ -58,7 +58,6 @@
         if (AudioContextClass) {
           audioCtx = new AudioContextClass();
           
-          // 低音〜中音域を活かすローパスフィルター
           masterFilter = audioCtx.createBiquadFilter();
           masterFilter.type = 'lowpass';
           masterFilter.frequency.setValueAtTime(800, audioCtx.currentTime);
@@ -70,7 +69,6 @@
       }
     }
 
-    // ちび粒子発生時の「ポコッ」という可愛らしい発生音
     function playPokoSound(pitchRatio = 1.0) {
       if (!audioCtx || audioCtx.state !== 'running') return;
 
@@ -125,9 +123,9 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 各粒子が独立音源を持つ群集モデル
+    // 3. 各粒子が独立音源・動的寿命を持つ群集モデル
     // ==========================================
-    const MAX_PARTICLES = 1400; // オーディオパフォーマンスとのバランスをとった最大数
+    const MAX_PARTICLES = 1400;
     const particles = [];
 
     const sphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
@@ -153,10 +151,11 @@
         ));
 
         this.life = 1.0;
-        this.decay = 0.001 + Math.random() * 0.0012;
+        // 孤立状態での標準減衰速度（単体だとやや早く消滅する）
+        this.baseDecay = 0.003 + Math.random() * 0.001;
 
-        // --- ① 一つ一つの粒子専用の微小音源（Web Audio）---
-        this.baseFreq = 80 + Math.random() * 120; // 粒子ごとの個性（周波数の個体差）
+        // 音響プロパティ
+        this.baseFreq = 80 + Math.random() * 120;
         this.osc = null;
         this.gain = null;
 
@@ -165,11 +164,8 @@
             this.osc = audioCtx.createOscillator();
             this.gain = audioCtx.createGain();
 
-            // ザーッというざらつきを生む三角波
             this.osc.type = 'triangle';
             this.osc.frequency.setValueAtTime(this.baseFreq, audioCtx.currentTime);
-
-            // 音源は「ごく微弱」に設定（数千個合わさってちょうど良い音量に）
             this.gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
 
             this.osc.connect(this.gain);
@@ -230,22 +226,42 @@
         }
       }
 
-      update() {
+      update(allParticles) {
         this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
-        // 寿命と透明度
-        this.life -= this.decay;
+        // --- 他の全粒子からの「距離」と「存在数」による動的寿命計算 ---
+        let totalSupport = 0;
+        const totalCount = allParticles.length;
+
+        for (let i = 0; i < totalCount; i++) {
+          const other = allParticles[i];
+          if (other !== this) {
+            const dist = this.mesh.position.distanceTo(other.mesh.position);
+            
+            // 1. 距離に応じた影響: 近いほど大きく反比例（どんなに離れていても極小の影響が及ぶ）
+            const distFactor = 1.0 / (dist + 1.0);
+
+            // 2. 存在数に応じたベース影響: 存在すること自体による微弱サポート
+            const countFactor = 0.000005;
+
+            totalSupport += (distFactor * 0.00015) + countFactor;
+          }
+        }
+
+        // 仲間のサポート（近さ・多さ）に応じて減衰速度（decay）をシームレスに減少させる
+        // 最大で通常の約1/4まで減衰が遅くなり、寿命が大幅に延びる
+        const currentDecay = Math.max(this.baseDecay * 0.25, this.baseDecay - totalSupport);
+        
+        this.life -= currentDecay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
 
-        // --- 個別粒子の移動速度に応じた「リアルタイム音高（ピッチ）・音量変化」 ---
+        // 速度に応じたピッチと音量
         const speed = this.velocity.length();
         if (this.osc && audioCtx && audioCtx.state === 'running') {
-          // 速度が上がると音高が高くなる (基本周波数 ＋ 速度補正)
           const currentFreq = this.baseFreq + (speed * 450);
           this.osc.frequency.setTargetAtTime(currentFreq, audioCtx.currentTime, 0.05);
 
-          // 速度と寿命に応じてごく微弱に音量を制御
           const targetVol = Math.min(0.0005 + (speed * 0.008), 0.004) * Math.max(0, this.life);
           this.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
         }
@@ -254,7 +270,6 @@
       }
 
       destroy() {
-        // オシレーターの安全な破棄
         if (this.osc) {
           try {
             this.gain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.02);
@@ -400,16 +415,14 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // カメラズーム補間
       camera.position.z += (targetZoom - camera.position.z) * 0.1;
 
-      // 限界境界値の計算
       const vFOV = THREE.MathUtils.degToRad(camera.fov);
       const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
       const visibleWidth = visibleHeight * camera.aspect;
       const bounds = { x: (visibleWidth / 2) * 0.82, y: (visibleHeight / 2) * 0.82 };
 
-      // 近接相互作用計算
+      // 近接相互作用計算（Boids）
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         
@@ -421,10 +434,11 @@
         p.applyFlockingRule(neighbors, bounds);
       }
 
-      // 位置・音響更新・生存判定
+      // 位置・動的寿命・音響更新・生存判定
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        const alive = p.update();
+        // 全粒子配列（particles）を渡して相互の距離・個体数を動的に計算
+        const alive = p.update(particles);
 
         if (!alive) {
           p.destroy();
