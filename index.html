@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>UNERI Flow - Emergent Particle Audio & Life Loop</title>
+  <title>UNERI Flow - Emergent Particle Audio & Life Loop (Fixed)</title>
   <style>
     body {
       margin: 0;
@@ -91,13 +91,13 @@
 
     <hr>
 
-    <!-- 新規追加：生成・進化・分解コントローラー -->
+    <!-- 修正版：生成・進化・分解コントローラー -->
     <div class="control-group">
       <label>
         <span>新粒子の発生しやすさ</span>
         <span id="react-val">1.0</span>
       </label>
-      <input type="range" id="react-slider" min="0.2" max="3.0" step="0.1" value="1.0">
+      <input type="range" id="react-slider" min="0.0" max="3.0" step="0.1" value="1.0">
     </div>
 
     <div class="control-group">
@@ -105,7 +105,7 @@
         <span>新粒子の分解時間</span>
         <span id="decay-val">1.0</span>
       </label>
-      <input type="range" id="decay-slider" min="0.2" max="3.0" step="0.1" value="1.0">
+      <input type="range" id="decay-slider" min="0.1" max="3.0" step="0.1" value="1.0">
     </div>
 
     <div class="control-group">
@@ -124,10 +124,9 @@
     let expFactor = 2.2;
     let thresholdValue = 0.0010;
 
-    // 新パラメーター
-    let reactivityFactor = 1.0; // 発生しやすさ
-    let decayTimeFactor = 1.0;  // 分解までの時間
-    let sizeLimitThreshold = 1.20; // 大きさ閾値
+    let reactivityFactor = 1.0; 
+    let decayTimeFactor = 1.0;  
+    let sizeLimitThreshold = 1.20; 
 
     const expSlider = document.getElementById('exp-slider');
     const expValDisplay = document.getElementById('exp-val');
@@ -200,7 +199,7 @@
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.06);
 
-        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
 
         osc.connect(gain);
@@ -208,9 +207,7 @@
 
         osc.start();
         osc.stop(audioCtx.currentTime + 0.07);
-      } catch (e) {
-        console.error("Audio play error:", e);
-      }
+      } catch (e) {}
     }
 
     // ==========================================
@@ -228,7 +225,6 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // ライティング
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
@@ -236,16 +232,15 @@
     mainLight.position.set(0, 0, 20);
     scene.add(mainLight);
 
-    // レイキャスト
     const raycaster = new THREE.Raycaster();
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const pointer = new THREE.Vector2();
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 各粒子が進化・進化特有プロパティを持つモデル
+    // 3. 粒子モデル（安全保護プロパティ付き）
     // ==========================================
-    const MAX_PARTICLES = 1400;
+    const MAX_PARTICLES = 1000;
     const particles = [];
 
     const baseSphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
@@ -262,14 +257,16 @@
         this.mesh = new THREE.Mesh(baseSphereGeo, particleMat.clone());
         this.mesh.position.set(x, y, z);
         
-        // 進化要件プロパティ
-        this.type = options.type !== undefined ? options.type : 0; // 種類(世代)
-        this.radius = options.radius !== undefined ? options.radius : 0.28; // 大きさ
-        this.hue = options.hue !== undefined ? options.hue : (0.40 + Math.random() * 0.18); // 色相
-        this.attractionPower = options.attractionPower !== undefined ? options.attractionPower : 0.007; // 引力
-        this.lifeBonus = options.lifeBonus !== undefined ? options.lifeBonus : 1.0; // 寿命補正
+        this.type = options.type !== undefined ? options.type : 0;
         
-        // メッシュの拡大率と色を設定
+        // 【修正】大きさの絶対上限（クラッシュ保護）
+        const rawRadius = options.radius !== undefined ? options.radius : 0.28;
+        this.radius = Math.min(rawRadius, 3.0); 
+
+        this.hue = options.hue !== undefined ? options.hue : (0.40 + Math.random() * 0.18);
+        this.attractionPower = options.attractionPower !== undefined ? Math.min(options.attractionPower, 0.05) : 0.007;
+        this.lifeBonus = options.lifeBonus !== undefined ? Math.min(options.lifeBonus, 3.0) : 1.0;
+        
         this.mesh.scale.setScalar(this.radius / 0.28);
         this.mesh.material.color.setHSL(this.hue % 1.0, 0.8, 0.65);
 
@@ -282,12 +279,13 @@
         this.life = 1.0;
         this.baseDecay = (0.025 + Math.random() * 0.005) / this.lifeBonus;
 
-        // 分解タイマー（上位種のみ）
         this.age = 0;
         this.decomposed = false;
 
-        // 音響プロパティ
-        this.baseFreq = (80 + Math.random() * 120) * Math.pow(0.9, this.type);
+        // 【修正】再融合を防ぐクールダウン時間（30フレーム）
+        this.fusionCooldown = options.fusionCooldown !== undefined ? options.fusionCooldown : 30;
+
+        this.baseFreq = (80 + Math.random() * 120) * Math.pow(0.9, Math.min(this.type, 8));
         this.osc = null;
         this.gain = null;
 
@@ -303,9 +301,7 @@
             this.osc.connect(this.gain);
             this.gain.connect(masterFilter || audioCtx.destination);
             this.osc.start();
-          } catch (e) {
-            this.osc = null;
-          }
+          } catch (e) {}
         }
       }
 
@@ -323,12 +319,9 @@
             cohesion.add(other.mesh.position);
             alignment.add(other.velocity);
 
-            // 自分より強烈な引力を持つ粒子の影響を強く受ける
-            const forceMultiplier = (other.attractionPower / 0.007);
-
             if (dist < (1.1 * (this.radius + other.radius) / 0.56)) {
               const pushAway = new THREE.Vector3().subVectors(this.mesh.position, other.mesh.position);
-              pushAway.normalize().divideScalar(dist);
+              pushAway.normalize().divideScalar(Math.max(dist, 0.1));
               separation.add(pushAway);
             }
             count++;
@@ -337,7 +330,6 @@
 
         if (count > 0) {
           cohesion.divideScalar(count);
-          // 新しい種類の粒子ほど強く他を引き寄せる
           const cohesionForce = new THREE.Vector3().subVectors(cohesion, this.mesh.position).multiplyScalar(this.attractionPower);
           this.velocity.add(cohesionForce);
 
@@ -348,7 +340,6 @@
           this.velocity.add(separation);
         }
 
-        // ソフトバウンダリ（画面境界）
         const marginX = bounds.x;
         const marginY = bounds.y;
 
@@ -367,24 +358,27 @@
         this.mesh.position.add(this.velocity);
         this.age += 1;
 
-        // --- 分解判定 (一定時間経過後、ひとつ前の種へ分解) ---
+        if (this.fusionCooldown > 0) {
+          this.fusionCooldown--;
+        }
+
+        // --- 分解判定 ---
         if (this.type > 0 && !this.decomposed) {
-          // 進化するほど分解までの時間が長くなる（基礎値）
-          let baseDecomposeAge = (200 + this.type * 120) * decayTimeFactor;
+          let baseDecomposeAge = (200 + this.type * 80) * decayTimeFactor;
           
-          // 大きさ閾値（sizeLimitThreshold）を超えると、逆に分解時間が急激に短縮される
+          // 大きさ閾値を超えた場合の急激分解
           if (this.radius > sizeLimitThreshold) {
             const overScale = this.radius / sizeLimitThreshold;
-            baseDecomposeAge /= Math.pow(overScale, 3); // 3乗で超急激に不規則分解
+            baseDecomposeAge /= Math.max(1.1, Math.pow(overScale, 2));
           }
 
           if (this.age > baseDecomposeAge) {
-            this.decomposed = true; // 分解フラグ（メインループで分裂処理）
+            this.decomposed = true;
             return false;
           }
         }
 
-        // --- 指数関数＆ブレーキコントロール ---
+        // --- 近接指数ブレーキと生存計算 ---
         let proximitySupport = 0;
         const totalCount = allParticles.length;
 
@@ -392,7 +386,6 @@
           const other = allParticles[i];
           if (other !== this) {
             const dist = this.mesh.position.distanceTo(other.mesh.position);
-            
             const exponentialDist = 1.0 / Math.pow(dist + 0.1, expFactor);
             proximitySupport += exponentialDist * 0.0035;
           }
@@ -404,13 +397,10 @@
           totalSupport = proximitySupport + countSupport;
         }
 
-        // 密集度に応じて寿命延長
         const currentDecay = Math.max(0.0003, this.baseDecay - totalSupport);
-        
         this.life -= currentDecay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
 
-        // 速度に応じたピッチと音量
         const speed = this.velocity.length();
         if (this.osc && audioCtx && audioCtx.state === 'running') {
           const currentFreq = this.baseFreq + (speed * 450);
@@ -444,7 +434,7 @@
     }
 
     // ==========================================
-    // 4. 操作（ピンチズーム・ホイール・ドラッグ）
+    // 4. 操作・生成処理
     // ==========================================
     let isInteracting = false;
     let lastPos = new THREE.Vector3();
@@ -469,7 +459,6 @@
 
     function onPointerDown(e) {
       if (e.target.closest('#ui-container')) return;
-
       initAudio();
 
       if (e.touches && e.touches.length === 2) {
@@ -483,7 +472,7 @@
       lastPos.copy(intersectPoint);
       dragVelocity.set(0, 0, 0);
 
-      spawnCluster(intersectPoint, 6, new THREE.Vector3());
+      spawnCluster(intersectPoint, 4, new THREE.Vector3());
     }
 
     function onPointerMove(e) {
@@ -503,7 +492,7 @@
       dragVelocity.subVectors(intersectPoint, lastPos);
 
       if (dragVelocity.lengthSq() > 0.04) {
-        const count = Math.min(Math.floor(dragVelocity.length() * 5) + 2, 7);
+        const count = Math.min(Math.floor(dragVelocity.length() * 4) + 1, 5);
         spawnCluster(intersectPoint, count, dragVelocity.clone().multiplyScalar(0.3));
         lastPos.copy(intersectPoint);
       }
@@ -533,9 +522,9 @@
         }
 
         const offset = new THREE.Vector3(
-          (Math.random() - 0.5) * 1.5,
-          (Math.random() - 0.5) * 1.5,
-          (Math.random() - 0.5) * 0.5
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 0.3
         );
         const spawnPos = pos.clone().add(offset);
         const p = new ChibiParticle(spawnPos.x, spawnPos.y, spawnPos.z, impulse, options);
@@ -548,7 +537,6 @@
       playPokoSound(speedPitch);
     }
 
-    // イベント登録
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
@@ -568,57 +556,56 @@
     });
 
     // ==========================================
-    // 5. 衝突判定・融合・構造生成ロジック
+    // 5. 【完全修正】安全な衝突判定・融合・構造生成ロジック
     // ==========================================
     function handleCollisionsAndFusion() {
-      const requiredSpeed = 0.12 / reactivityFactor; // 反応しやすさスライダー
+      // 0.0の時は完全に発生しない（OFF）
+      if (reactivityFactor <= 0.01) return;
+
+      // 【修正】スライダーの最小値で最も発生しにくく（必要速度を高精度設定）
+      const requiredSpeed = 0.8 / reactivityFactor; 
 
       for (let i = 0; i < particles.length; i++) {
         const p1 = particles[i];
-        if (!p1 || p1.life <= 0) continue;
+        if (!p1 || p1.life <= 0 || p1.fusionCooldown > 0) continue;
 
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
-          if (!p2 || p2.life <= 0) continue;
+          if (!p2 || p2.life <= 0 || p2.fusionCooldown > 0) continue;
 
           const dist = p1.mesh.position.distanceTo(p2.mesh.position);
-          const minDist = p1.radius + p2.radius;
+          const minDist = (p1.radius + p2.radius) * 0.8; 
 
           if (dist < minDist) {
-            // 相対速度・エネルギー算出
             const relVel = new THREE.Vector3().subVectors(p1.velocity, p2.velocity);
             const relativeSpeed = relVel.length();
 
-            // 一定速度以上で衝突した場合に新粒子へ融合・進化
             if (relativeSpeed > requiredSpeed) {
-              // 元の粒子たちを消滅
               p1.life = 0;
               p2.life = 0;
 
-              // --- 新粒子の要件計算 ---
+              // 【安全制限】極端な膨張を防ぐ計算
               const newType = Math.max(p1.type, p2.type) + 1;
-              const maxLifeBonus = Math.max(p1.lifeBonus, p2.lifeBonus) * 1.25; // 寿命少し長持ち
-              const maxRadius = Math.max(p1.radius, p2.radius) * 1.18; // 大きさ拡張
-              const maxAttraction = Math.max(p1.attractionPower, p2.attractionPower) * 1.35; // 引力強化
+              const maxLifeBonus = Math.min(Math.max(p1.lifeBonus, p2.lifeBonus) * 1.15, 2.5);
+              const maxRadius = Math.min(Math.max(p1.radius, p2.radius) * 1.1, 2.5);
+              const maxAttraction = Math.min(Math.max(p1.attractionPower, p2.attractionPower) * 1.2, 0.04);
 
-              // 色相：もっとも新しい世代（色相）から、一方向に進む（逆戻りしない）
               const latestHue = (p1.type >= p2.type) ? p1.hue : p2.hue;
-              const newHue = latestHue + 0.06; // 色相環上で常にプラス方向へ変異
+              const newHue = latestHue + 0.05;
 
-              // 衝突位置・角度に応じた新運動量
               const fusionPos = new THREE.Vector3().addVectors(p1.mesh.position, p2.mesh.position).multiplyScalar(0.5);
-              const fusionVel = new THREE.Vector3().addVectors(p1.velocity, p2.velocity).multiplyScalar(0.55);
+              const fusionVel = new THREE.Vector3().addVectors(p1.velocity, p2.velocity).multiplyScalar(0.5);
 
-              // 融合音
-              playPokoSound(1.4 + newType * 0.15);
+              playPokoSound(1.2 + Math.min(newType, 10) * 0.1);
 
-              // 新粒子誕生（1個に統合進化）
+              // 誕生直後の再融合防止（30フレームの不応期）
               spawnCluster(fusionPos, 1, fusionVel, {
                 type: newType,
                 radius: maxRadius,
                 hue: newHue,
                 attractionPower: maxAttraction,
-                lifeBonus: maxLifeBonus
+                lifeBonus: maxLifeBonus,
+                fusionCooldown: 30
               });
 
               break;
@@ -641,27 +628,22 @@
       const visibleWidth = visibleHeight * camera.aspect;
       const bounds = { x: (visibleWidth / 2) * 0.82, y: (visibleHeight / 2) * 0.82 };
 
-      // 近接相互作用計算（Boids）
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
-        
         const neighbors = [];
         for (let j = 0; j < particles.length; j += 2) { 
           if (i !== j) neighbors.push(particles[j]);
         }
-        
         p.applyFlockingRule(neighbors, bounds);
       }
 
-      // 衝突と融合・新粒子生成チェック
       handleCollisionsAndFusion();
 
-      // 位置・動的寿命・音響更新・生存判定
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         const alive = p.update(particles);
 
-        // 分解判定（寿命とは別に、時間が経過してひとつ前の種に分裂する場合）
+        // 【修正】分解時の粒子数爆発を防ぐ安全分裂
         if (p.decomposed) {
           const parentPos = p.mesh.position.clone();
           const parentVel = p.velocity.clone();
@@ -670,13 +652,14 @@
           p.destroy();
           particles.splice(i, 1);
 
-          // ひとつ前の種類（少し小さな粒子2〜3個）に分解
-          spawnCluster(parentPos, 2, parentVel.negate().multiplyScalar(0.4), {
+          // 一度に増えすぎないよう分裂は2個固定・不応期付与
+          spawnCluster(parentPos, 2, parentVel.negate().multiplyScalar(0.25), {
             type: prevType,
-            radius: Math.max(0.28, p.radius / 1.18),
-            hue: p.hue, // 色相は引き継ぐ
-            attractionPower: Math.max(0.007, p.attractionPower / 1.35),
-            lifeBonus: Math.max(1.0, p.lifeBonus / 1.25)
+            radius: Math.max(0.28, p.radius / 1.12),
+            hue: p.hue,
+            attractionPower: Math.max(0.007, p.attractionPower / 1.2),
+            lifeBonus: Math.max(1.0, p.lifeBonus / 1.15),
+            fusionCooldown: 45 // 分解直後の再融合を防ぐ長めの不応期
           });
           continue;
         }
@@ -687,7 +670,6 @@
         }
       }
 
-      // ライティング追従
       if (particles.length > 0) {
         const avgPos = new THREE.Vector3();
         for (let i = 0; i < particles.length; i++) {
