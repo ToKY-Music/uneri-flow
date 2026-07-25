@@ -123,7 +123,7 @@
     const intersectPoint = new THREE.Vector3();
 
     // ==========================================
-    // 3. 各粒子が独立音源・動的寿命を持つ群集モデル
+    // 3. 各粒子が独立音源・強化版動的寿命を持つ群集モデル
     // ==========================================
     const MAX_PARTICLES = 1400;
     const particles = [];
@@ -151,8 +151,8 @@
         ));
 
         this.life = 1.0;
-        // 孤立状態での標準減衰速度（単体だとやや早く消滅する）
-        this.baseDecay = 0.003 + Math.random() * 0.001;
+        // 単体時のベース減衰速度をやや早めに設定（単体だと3〜4秒で素早く消える）
+        this.baseDecay = 0.006 + Math.random() * 0.002;
 
         // 音響プロパティ
         this.baseFreq = 80 + Math.random() * 120;
@@ -230,7 +230,7 @@
         this.velocity.multiplyScalar(0.965);
         this.mesh.position.add(this.velocity);
 
-        // --- 他の全粒子からの「距離」と「存在数」による動的寿命計算 ---
+        // --- 強力版：他の全粒子からの「距離」と「存在数」による動的寿命計算 ---
         let totalSupport = 0;
         const totalCount = allParticles.length;
 
@@ -239,19 +239,18 @@
           if (other !== this) {
             const dist = this.mesh.position.distanceTo(other.mesh.position);
             
-            // 1. 距離に応じた影響: 近いほど大きく反比例（どんなに離れていても極小の影響が及ぶ）
-            const distFactor = 1.0 / (dist + 1.0);
+            // 1. 距離に応じた影響 (重みを約20倍に強化)
+            const distFactor = 1.0 / (dist + 0.5);
 
-            // 2. 存在数に応じたベース影響: 存在すること自体による微弱サポート
-            const countFactor = 0.000005;
+            // 2. 存在数に応じたベース影響 (重みを強化)
+            const countFactor = 0.00003;
 
-            totalSupport += (distFactor * 0.00015) + countFactor;
+            totalSupport += (distFactor * 0.0028) + countFactor;
           }
         }
 
-        // 仲間のサポート（近さ・多さ）に応じて減衰速度（decay）をシームレスに減少させる
-        // 最大で通常の約1/4まで減衰が遅くなり、寿命が大幅に延びる
-        const currentDecay = Math.max(this.baseDecay * 0.25, this.baseDecay - totalSupport);
+        // 高密度・大人数になるほど減衰速度が大幅に低下（最大で通常の1/10＝寿命が約10倍伸びる）
+        const currentDecay = Math.max(this.baseDecay * 0.1, this.baseDecay - totalSupport);
         
         this.life -= currentDecay;
         this.mesh.material.opacity = Math.max(0, this.life * 0.85);
@@ -434,10 +433,9 @@
         p.applyFlockingRule(neighbors, bounds);
       }
 
-      // 位置・動的寿命・音響更新・生存判定
+      // 位置・強化動的寿命・音響更新・生存判定
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        // 全粒子配列（particles）を渡して相互の距離・個体数を動的に計算
         const alive = p.update(particles);
 
         if (!alive) {
