@@ -421,9 +421,8 @@
       <button class="action-btn" id="clear-particles-btn">🗑️ 全粒子をリセット (C)</button>
     </div>
 
-    <!-- タブ2: 生態系パラメーター (分かりやすい表現へ見直し) -->
+    <!-- タブ2: 生態系パラメーター -->
     <div class="tab-content" id="tab-eco">
-      <!-- ① デフォルトONに変更 -->
       <div class="switch-group">
         <span>画面端での反転 (跳ね返り)</span>
         <label class="toggle-switch">
@@ -432,7 +431,6 @@
         </label>
       </div>
 
-      <!-- ③ 分かりやすい表現に改修 -->
       <div class="control-group">
         <label>
           <span>孤独時の寿命の縮みやすさ</span>
@@ -474,7 +472,7 @@
       </div>
     </div>
 
-    <!-- タブ3: 音響設定 -->
+    <!-- タブ3: 音響設定（ダイナミックレンジと全体音量を拡張） -->
     <div class="tab-content" id="tab-audio">
       <div class="switch-group">
         <span>マスター音声 (Sound ON/OFF)</span>
@@ -487,26 +485,25 @@
       <div class="control-group">
         <label>
           <span>粒子発生音 (Spawn Volume)</span>
-          <span id="vol-spawn-val">1.0</span>
+          <span id="vol-spawn-val">1.5</span>
         </label>
-        <input type="range" id="vol-spawn-slider" min="0.0" max="2.0" step="0.1" value="1.0">
+        <input type="range" id="vol-spawn-slider" min="0.0" max="4.0" step="0.1" value="1.5">
       </div>
 
-      <!-- ② 移動音のデフォルト値・上限アップ -->
       <div class="control-group">
         <label>
           <span>粒子移動音 (Motion Volume)</span>
-          <span id="vol-motion-val">1.5</span>
+          <span id="vol-motion-val">2.0</span>
         </label>
-        <input type="range" id="vol-motion-slider" min="0.0" max="3.0" step="0.1" value="1.5">
+        <input type="range" id="vol-motion-slider" min="0.0" max="5.0" step="0.1" value="2.0">
       </div>
 
       <div class="control-group">
         <label>
           <span>粒子融合/分解音 (Fusion Volume)</span>
-          <span id="vol-fusion-val">1.0</span>
+          <span id="vol-fusion-val">1.5</span>
         </label>
-        <input type="range" id="vol-fusion-slider" min="0.0" max="2.0" step="0.1" value="1.0">
+        <input type="range" id="vol-fusion-slider" min="0.0" max="4.0" step="0.1" value="1.5">
       </div>
     </div>
 
@@ -522,14 +519,13 @@
     let decayTimeFactor = 1.0;  
     let sizeLimitThreshold = 1.20; 
 
-    // ① 画面端での反転設定（デフォルト ON に変更）
     let isBoundaryBounceEnabled = true;
 
     let isAudioEnabled = true;
-    let volSpawn = 1.0;
-    // ② 移動音の初期値を 1.5 に引き上げ
-    let volMotion = 1.5;
-    let volFusion = 1.0;
+    // 音量デフォルト値をボトムアップ（発生音: 1.5, 移動音: 2.0, 融合音: 1.5）
+    let volSpawn = 1.5;
+    let volMotion = 2.0;
+    let volFusion = 1.5;
 
     let isCameraMode = false; 
     let isShiftPressed = false; 
@@ -682,7 +678,7 @@
           
           masterFilter = audioCtx.createBiquadFilter();
           masterFilter.type = 'lowpass';
-          masterFilter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+          masterFilter.frequency.setValueAtTime(1600, audioCtx.currentTime); // フィルター周波数を広げて輪郭を明瞭化
           masterFilter.connect(audioCtx.destination);
 
           for (let i = 0; i < MAX_VOICES; i++) {
@@ -728,7 +724,7 @@
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
       const baseVolume = isFusion ? volFusion : volSpawn;
-      if (baseVolume <= 0.01) return;
+      if (baseVolume <= 0.001) return; // 0の時は完全消音
 
       try {
         const osc = audioCtx.createOscillator();
@@ -750,7 +746,8 @@
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.05);
 
-        const targetGain = 0.08 * baseVolume;
+        // 基本最大ゲインを0.18に引き上げ、スライダー音量をダイレクトに反映
+        const targetGain = 0.18 * baseVolume;
         gain.gain.setValueAtTime(targetGain, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.06);
 
@@ -908,7 +905,6 @@
           this.velocity.add(separation);
         }
 
-        // 画面端での反転制御（視点操作中は一時的に反転を保留）
         if (isBoundaryBounceEnabled && !isCameraTransforming) {
           const minX = targetCamPos.x - bounds.x;
           const maxX = targetCamPos.x + bounds.x;
@@ -1224,7 +1220,7 @@
       }
     }
 
-    // ② 移動音（volMotion）のゲイン計算を調整して音量向上
+    // 移動音ゲインのダイナミックレンジ拡張
     function updateAudioVoices() {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
@@ -1247,15 +1243,16 @@
         const voice = voicePool[i];
         const p = activeParticles[i];
 
-        if (p && p.life > 0 && volMotion > 0.01) {
+        // volMotionが0の場合は確実に完全消音
+        if (p && p.life > 0 && volMotion > 0.001) {
           const speed = p.velocity.length();
-          const targetFreq = p.baseFreq + (speed * 300);
+          const targetFreq = p.baseFreq + (speed * 320);
           
           const distToCam = camera.position.distanceTo(p.mesh.position);
           const distanceGain = Math.max(0.05, 1.0 - (distToCam / 120.0)); 
 
-          // 音量倍率（0.008）を引き上げ、移動音の存在感を強化
-          const targetVol = Math.min(0.0006 + (speed * 0.008), 0.006) * Math.max(0, p.life) * volMotion * distanceGain;
+          // 上限と感度を引き上げ、力強く響くように調整
+          const targetVol = Math.min(0.0012 + (speed * 0.015), 0.018) * Math.max(0, p.life) * volMotion * distanceGain;
 
           voice.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
           voice.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
