@@ -15,11 +15,49 @@
       user-select: none;
     }
 
+    /* ② 画面上部中央に独立配置した「視点操作モード」フローティングボタン */
+    #mode-floating-btn {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(13, 15, 24, 0.85);
+      border: 1px solid rgba(126, 241, 211, 0.4);
+      color: #7ef1d3;
+      padding: 8px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      pointer-events: auto;
+    }
+
+    #mode-floating-btn:hover {
+      background: rgba(20, 25, 40, 0.95);
+      border-color: #7ef1d3;
+      transform: translateX(-50%) scale(1.05);
+    }
+
+    #mode-floating-btn.active {
+      background: rgba(126, 241, 211, 0.25);
+      border-color: #7ef1d3;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(126, 241, 211, 0.5);
+    }
+
     /* UI Panel Style */
     #ui-container {
       position: absolute;
       top: 20px;
       left: 20px;
+      z-index: 90;
       color: #e0f0ff;
       pointer-events: auto;
       text-shadow: 0 0 8px rgba(0,255,200,0.5);
@@ -28,7 +66,7 @@
       border-radius: 14px;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(126, 241, 211, 0.25);
-      width: 280px;
+      width: 300px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
       transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.3s ease;
       box-sizing: border-box;
@@ -81,7 +119,6 @@
       flex-shrink: 0;
     }
 
-    /* ボタン群 */
     .icon-btn {
       background: rgba(126, 241, 211, 0.12);
       border: 1px solid rgba(126, 241, 211, 0.3);
@@ -132,7 +169,6 @@
       100% { box-shadow: 0 0 0 0 rgba(126, 241, 211, 0); }
     }
 
-    /* ③ タブUIスタイル */
     .tab-container {
       display: flex;
       border-bottom: 1px solid rgba(126, 241, 211, 0.3);
@@ -162,9 +198,9 @@
 
     .tab-content {
       display: none;
-      max-height: 48vh;
+      max-height: 52vh;
       overflow-y: auto;
-      padding-right: 2px;
+      padding-right: 4px;
     }
 
     .tab-content.active {
@@ -177,6 +213,51 @@
     .tab-content::-webkit-scrollbar-thumb {
       background: rgba(126, 241, 211, 0.3);
       border-radius: 2px;
+    }
+
+    /* ③ 操作ガイド & ショートカットスタイル */
+    .guide-section {
+      background: rgba(126, 241, 211, 0.05);
+      border: 1px solid rgba(126, 241, 211, 0.15);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .guide-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #7ef1d3;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .guide-list {
+      font-size: 0.64rem;
+      color: #b0e0d0;
+      line-height: 1.5;
+      margin: 0;
+      padding-left: 14px;
+    }
+    .shortcut-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.62rem;
+      color: #b0e0d0;
+      margin-top: 4px;
+    }
+    .shortcut-table td {
+      padding: 3px 0;
+      border-bottom: 1px dashed rgba(126, 241, 211, 0.1);
+    }
+    kbd {
+      background: rgba(126, 241, 211, 0.2);
+      border: 1px solid rgba(126, 241, 211, 0.4);
+      color: #ffffff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.62rem;
     }
 
     .control-group {
@@ -243,7 +324,6 @@
       background-color: #ffffff;
     }
 
-    /* ④ アクションボタン */
     .action-btn {
       width: 100%;
       padding: 8px;
@@ -260,34 +340,16 @@
     .action-btn:hover {
       background: rgba(255, 90, 90, 0.3);
     }
-
-    .mode-btn {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 8px;
-      background: rgba(126, 241, 211, 0.1);
-      border: 1px solid rgba(126, 241, 211, 0.3);
-      color: #7ef1d3;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.7rem;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-    .mode-btn.active {
-      background: rgba(126, 241, 211, 0.35);
-      border-color: #7ef1d3;
-      box-shadow: 0 0 10px rgba(126, 241, 211, 0.3);
-    }
   </style>
-  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+
+  <!-- ② 画面中央上部の常時表示フローティングボタン -->
+  <button id="mode-floating-btn" title="視点操作モード（Spaceキー）">
+    <span id="mode-icon">✨</span>
+    <span id="mode-text">粒子発生モード</span>
+  </button>
 
   <div id="ui-container">
     <div class="collapsed-icon" title="メニューを開く">⚙️</div>
@@ -295,33 +357,57 @@
     <div class="ui-header">
       <h1>UNERI Flow</h1>
       <div class="ui-header-actions">
-        <div class="icon-btn" id="reset-cam-btn" title="視点を最初に戻す">🏠</div>
+        <div class="icon-btn" id="reset-cam-btn" title="視点を最初に戻す (Rキー)">🏠</div>
         <div class="icon-btn" id="toggle-btn" title="メニューを折りたたむ">─</div>
       </div>
     </div>
     
     <p class="concept-sub">衝突、進化、崩壊。<br>粒子の生態系を『持続』させる調和を見つけ出そう。</p>
 
-    <!-- ③ 3つのタブUI -->
     <div class="tab-container">
       <button class="tab-btn active" data-tab="tab-control">🎮 操作</button>
       <button class="tab-btn" data-tab="tab-eco">🌿 生態系</button>
       <button class="tab-btn" data-tab="tab-audio">🔊 音響</button>
     </div>
 
-    <!-- タブ1: 操作設定 -->
+    <!-- ③ タブ1: 操作説明 & ショートカットガイド -->
     <div class="tab-content active" id="tab-control">
-      <!-- ① & ② 視点操作モード（粒子非発生モード） -->
-      <button class="mode-btn" id="cam-mode-btn">
-        <span>🔍 視点操作モード (粒子不発生)</span>
-      </button>
-
-      <div style="font-size: 0.62rem; color: #90c8b8; line-height: 1.4; margin-bottom: 10px;">
-        ※ONにすると、ドラッグやピンチ操作時に粒子が発生せず、画面の並行移動や拡大縮小が行えます。
+      <div class="guide-section">
+        <div class="guide-title">📱 タッチ / マウス操作方法</div>
+        <ul class="guide-list">
+          <li><strong>粒子発生:</strong> 1本指ドラッグ / クリックドラッグ</li>
+          <li><strong>視点移動:</strong> 2本指ドラッグ（または視点操作モード時）</li>
+          <li><strong>ズーム:</strong> ピンチイン・アウト / ホイール操作</li>
+        </ul>
       </div>
 
-      <!-- ④ 全粒子リセットボタン -->
-      <button class="action-btn" id="clear-particles-btn">🗑️ 全粒子をリセット</button>
+      <div class="guide-section">
+        <div class="guide-title">⌨️ PCキーボードショートカット</div>
+        <table class="shortcut-table">
+          <tr>
+            <td><kbd>Space</kbd></td>
+            <td>視点操作モード ON/OFF</td>
+          </tr>
+          <tr>
+            <td><kbd>Shift</kbd> + ドラッグ</td>
+            <td>一時的に視点並行移動</td>
+          </tr>
+          <tr>
+            <td><kbd>R</kbd></td>
+            <td>視点を初期位置にリセット</td>
+          </tr>
+          <tr>
+            <td><kbd>+</kbd> / <kbd>-</kbd></td>
+            <td>ズームイン / ズームアウト</td>
+          </tr>
+          <tr>
+            <td><kbd>C</kbd></td>
+            <td>全粒子をリセット</td>
+          </tr>
+        </table>
+      </div>
+
+      <button class="action-btn" id="clear-particles-btn">🗑️ 全粒子をリセット (C)</button>
     </div>
 
     <!-- タブ2: 生態系パラメータ -->
@@ -419,12 +505,29 @@
     let volMotion = 1.0;
     let volFusion = 1.0;
 
-    let isCameraMode = false; // 視点移動モードフラグ
+    let isCameraMode = false; 
+    let isShiftPressed = false; 
+
+    // ① カメラ操作中判定用フラグ
+    let isCameraTransforming = false; 
+    let camTransformTimeout = null;
+
+    function triggerCameraTransform() {
+      isCameraTransforming = true;
+      if (camTransformTimeout) clearTimeout(camTransformTimeout);
+      camTransformTimeout = setTimeout(() => {
+        isCameraTransforming = false;
+      }, 300); // 操作終了から0.3秒間反転処理を抑止
+    }
 
     const uiContainer = document.getElementById('ui-container');
     const toggleBtn = document.getElementById('toggle-btn');
     const resetCamBtn = document.getElementById('reset-cam-btn');
-    const camModeBtn = document.getElementById('cam-mode-btn');
+    
+    // ② 画面上部ボタン
+    const modeFloatingBtn = document.getElementById('mode-floating-btn');
+    const modeIcon = document.getElementById('mode-icon');
+    const modeText = document.getElementById('mode-text');
 
     function toggleUI(e) {
       if (e) e.stopPropagation();
@@ -438,7 +541,7 @@
       }
     });
 
-    // ③ タブ切り替え処理
+    // タブ切り替え
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -455,14 +558,51 @@
       });
     });
 
-    // ① & ② 視点操作モード切り替え
-    camModeBtn.addEventListener('click', (e) => {
+    // ② モード切替関数
+    function setCameraMode(enabled) {
+      isCameraMode = enabled;
+      modeFloatingBtn.classList.toggle('active', isCameraMode);
+      if (isCameraMode) {
+        modeIcon.textContent = '🔍';
+        modeText.textContent = '視点操作モード';
+      } else {
+        modeIcon.textContent = '✨';
+        modeText.textContent = '粒子発生モード';
+      }
+    }
+
+    modeFloatingBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      isCameraMode = !isCameraMode;
-      camModeBtn.classList.toggle('active', isCameraMode);
+      setCameraMode(!isCameraMode);
     });
 
-    // スライダー・UIバインド
+    // ③ キーボードショートカットの実装
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setCameraMode(!isCameraMode);
+      } else if (e.key === 'Shift') {
+        isShiftPressed = true;
+      } else if (e.key === 'r' || e.key === 'R') {
+        resetCameraPos();
+      } else if (e.key === '+' || e.key === '=') {
+        zoomCamera(-4);
+      } else if (e.key === '-' || e.key === '_') {
+        zoomCamera(4);
+      } else if (e.key === 'c' || e.key === 'C') {
+        clearAllParticles();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Shift') {
+        isShiftPressed = false;
+      }
+    });
+
+    // スライダーバインド
     const bindSlider = (sliderId, displayId, callback) => {
       const slider = document.getElementById(sliderId);
       const display = document.getElementById(displayId);
@@ -501,7 +641,7 @@
     bindSlider('vol-fusion-slider', 'vol-fusion-val', v => volFusion = v);
 
     // ==========================================
-    // 1. 【⑤修正】 Web Audio API 3D空間サラウンド音響
+    // 1. Web Audio API 3D空間サラウンド音響
     // ==========================================
     let audioCtx = null;
     let masterFilter = null;
@@ -524,11 +664,10 @@
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
 
-            // ⑤ 3D空間パナー（立体音響）ノードを追加
             let panner;
             if (audioCtx.createPanner) {
               panner = audioCtx.createPanner();
-              panner.panningModel = 'HRTF'; // 高精度サラウンド
+              panner.panningModel = 'HRTF';
               panner.distanceModel = 'inverse';
               panner.refDistance = 5;
               panner.maxDistance = 100;
@@ -560,7 +699,6 @@
       }
     }
 
-    // ⑤ 3Dパンニングヒット音 (衝突・融合・分解)
     function playPokoSound(pitchRatio = 1.0, isFusion = false, pos = null) {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
@@ -617,10 +755,20 @@
     let targetCamPos = new THREE.Vector3(0, 0, targetZoom);
     camera.position.set(0, 0, targetZoom);
 
-    resetCamBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    function resetCameraPos() {
       targetZoom = 30;
       targetCamPos.set(0, 0, targetZoom);
+      triggerCameraTransform();
+    }
+
+    function zoomCamera(delta) {
+      targetZoom = Math.max(5, targetZoom + delta);
+      triggerCameraTransform();
+    }
+
+    resetCamBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetCameraPos();
     });
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -646,13 +794,16 @@
     const MAX_PARTICLES = 1000;
     let particles = [];
 
-    // ④ 全粒子消去処理
-    document.getElementById('clear-particles-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
+    function clearAllParticles() {
       for (let i = 0; i < particles.length; i++) {
         particles[i].destroy();
       }
       particles = [];
+    }
+
+    document.getElementById('clear-particles-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearAllParticles();
     });
 
     const baseSphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
@@ -732,22 +883,23 @@
           this.velocity.add(separation);
         }
 
-        // カメラ位置（並行移動座標）に追従する移動境界制限
-        const minX = targetCamPos.x - bounds.x;
-        const maxX = targetCamPos.x + bounds.x;
-        const minY = targetCamPos.y - bounds.y;
-        const maxY = targetCamPos.y + bounds.y;
+        // ① 視点操作中（カメラ移動/ズーム時）は「画面端反転」機能をストップ
+        if (!isCameraTransforming) {
+          const minX = targetCamPos.x - bounds.x;
+          const maxX = targetCamPos.x + bounds.x;
+          const minY = targetCamPos.y - bounds.y;
+          const maxY = targetCamPos.y + bounds.y;
 
-        if (this.mesh.position.x > maxX) this.velocity.x -= (this.mesh.position.x - maxX) * 0.015;
-        if (this.mesh.position.x < minX) this.velocity.x += (minX - this.mesh.position.x) * 0.015;
-        if (this.mesh.position.y > maxY) this.velocity.y -= (this.mesh.position.y - maxY) * 0.015;
-        if (this.mesh.position.y < minY) this.velocity.y += (minY - this.mesh.position.y) * 0.015;
+          if (this.mesh.position.x > maxX) this.velocity.x -= (this.mesh.position.x - maxX) * 0.015;
+          if (this.mesh.position.x < minX) this.velocity.x += (minX - this.mesh.position.x) * 0.015;
+          if (this.mesh.position.y > maxY) this.velocity.y -= (this.mesh.position.y - maxY) * 0.015;
+          if (this.mesh.position.y < minY) this.velocity.y += (minY - this.mesh.position.y) * 0.015;
 
-        // Z軸手前・奥の範囲制限
-        const maxZ = 12.0;
-        const minZ = -15.0;
-        if (this.mesh.position.z > maxZ) this.velocity.z -= (this.mesh.position.z - maxZ) * 0.02;
-        if (this.mesh.position.z < minZ) this.velocity.z += (minZ - this.mesh.position.z) * 0.02;
+          const maxZ = 12.0;
+          const minZ = -15.0;
+          if (this.mesh.position.z > maxZ) this.velocity.z -= (this.mesh.position.z - maxZ) * 0.02;
+          if (this.mesh.position.z < minZ) this.velocity.z += (minZ - this.mesh.position.z) * 0.02;
+        }
       }
 
       update(allParticles) {
@@ -807,7 +959,7 @@
     }
 
     // ==========================================
-    // 4. ① & ② 操作・並行移動・視点制御
+    // 4. 操作・並行移動・視点制御
     // ==========================================
     let isInteracting = false;
     let isPanDragging = false;
@@ -841,28 +993,30 @@
     }
 
     function onPointerDown(e) {
-      if (e.target.closest('#ui-container')) return;
+      if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
 
-      // スマホ 2本指操作 (② 並行移動 ＆ ズーム)
+      // 2本指操作（ピンチイン/アウト・並行移動）
       if (e.touches && e.touches.length === 2) {
         isInteracting = false;
         isPanDragging = true;
         initialPinchDistance = getTouchDistance(e);
         lastTouchCenter = getTouchCenter(e);
+        triggerCameraTransform();
         return;
       }
 
-      // 視点操作モード時
-      if (isCameraMode) {
+      // 視点操作モード または Shiftキー押下時
+      if (isCameraMode || isShiftPressed) {
         isPanDragging = true;
         isInteracting = false;
         getPointerPos(e);
         lastPos.copy(intersectPoint);
+        triggerCameraTransform();
         return;
       }
 
-      // 通常時：粒子発生ドラッグ
+      // 通常粒子発生モード
       isInteracting = true;
       isPanDragging = false;
       getPointerPos(e);
@@ -873,15 +1027,15 @@
     }
 
     function onPointerMove(e) {
-      // 2本指のピンチイン/アウト ＆ 2本指での画面並行移動
+      // 2本指操作
       if (e.touches && e.touches.length === 2) {
+        triggerCameraTransform();
         if (initialPinchDistance) {
           const newDistance = getTouchDistance(e);
           const delta = (initialPinchDistance - newDistance) * (targetZoom * 0.003);
           targetZoom = Math.max(5, targetZoom + delta * 2.0);
           initialPinchDistance = newDistance;
 
-          // 2本指平行移動
           const currentCenter = getTouchCenter(e);
           const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0015);
           const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0015);
@@ -893,8 +1047,9 @@
         return;
       }
 
-      // ② 視点操作モード（1本指ドラッグでの並行移動）
-      if (isPanDragging && isCameraMode) {
+      // 視点移動ドラッグ
+      if (isPanDragging && (isCameraMode || isShiftPressed)) {
+        triggerCameraTransform();
         getPointerPos(e);
         const deltaX = intersectPoint.x - lastPos.x;
         const deltaY = intersectPoint.y - lastPos.y;
@@ -927,8 +1082,9 @@
     }
 
     window.addEventListener('wheel', (e) => {
-      if (e.target.closest('#ui-container')) return;
+      if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
+      triggerCameraTransform();
 
       getPointerPos(e);
       const zoomFactor = e.deltaY * 0.002 * targetZoom;
@@ -968,11 +1124,12 @@
     window.addEventListener('pointerup', onPointerUp);
     
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#ui-container')) return;
+      if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
       if (e.touches.length === 2) {
         initialPinchDistance = getTouchDistance(e);
         lastTouchCenter = getTouchCenter(e);
+        triggerCameraTransform();
       }
     }, { passive: true });
     window.addEventListener('touchmove', onPointerMove, { passive: true });
@@ -1040,11 +1197,10 @@
       }
     }
 
-    // ⑤ リアルタイム3D空間パンニング・距離減衰更新
+    // 3D空間パンニング・距離減衰更新
     function updateAudioVoices() {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
-      // リスナー（視点カメラ）の位置と向きを設定
       if (audioCtx.listener) {
         if (audioCtx.listener.positionX) {
           audioCtx.listener.positionX.setValueAtTime(camera.position.x, audioCtx.currentTime);
@@ -1068,7 +1224,6 @@
           const speed = p.velocity.length();
           const targetFreq = p.baseFreq + (speed * 300);
           
-          // カメラと粒子の距離減衰
           const distToCam = camera.position.distanceTo(p.mesh.position);
           const distanceGain = Math.max(0.05, 1.0 - (distToCam / 120.0)); 
 
@@ -1077,13 +1232,11 @@
           voice.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
           voice.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
 
-          // ⑤ パナーノードの3D位置を粒子座標に合わせ動的リアルタイム更新
           if (voice.panner && voice.panner.positionX) {
             voice.panner.positionX.setTargetAtTime(p.mesh.position.x, audioCtx.currentTime, 0.05);
             voice.panner.positionY.setTargetAtTime(p.mesh.position.y, audioCtx.currentTime, 0.05);
             voice.panner.positionZ.setTargetAtTime(p.mesh.position.z, audioCtx.currentTime, 0.05);
           } else if (voice.panner && voice.panner.pan) {
-            // ステレオフォールバック（左右パン）
             const relX = (p.mesh.position.x - camera.position.x) / (camera.position.z * 0.5);
             const panVal = Math.max(-1, Math.min(1, relX));
             voice.panner.pan.setTargetAtTime(panVal, audioCtx.currentTime, 0.05);
