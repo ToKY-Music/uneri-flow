@@ -15,7 +15,6 @@
       user-select: none;
     }
 
-    /* ① PC表示時の「視点操作モード」フローティングボタン（右上へ配置変更） */
     #mode-floating-btn {
       position: absolute;
       top: 20px;
@@ -51,7 +50,6 @@
       box-shadow: 0 0 15px rgba(126, 241, 211, 0.5);
     }
 
-    /* ① スマートフォン端末（画面幅768px以下）でのボタン重なり防止設定 */
     @media (max-width: 768px) {
       #mode-floating-btn {
         top: auto;
@@ -69,7 +67,6 @@
       }
     }
 
-    /* UI Panel Style */
     #ui-container {
       position: absolute;
       top: 20px;
@@ -91,7 +88,6 @@
       flex-direction: column;
     }
 
-    /* 折りたたみ状態 */
     #ui-container.collapsed {
       width: 48px !important;
       height: 48px;
@@ -232,7 +228,6 @@
       border-radius: 2px;
     }
 
-    /* 操作ガイド & ショートカットスタイル */
     .guide-section {
       background: rgba(126, 241, 211, 0.05);
       border: 1px solid rgba(126, 241, 211, 0.15);
@@ -362,7 +357,6 @@
 </head>
 <body>
 
-  <!-- ① 重なりを防ぐ配置に調整したフローティングボタン -->
   <button id="mode-floating-btn" title="視点操作モード（Spaceキー）">
     <span id="mode-icon">✨</span>
     <span id="mode-text">粒子発生モード</span>
@@ -429,6 +423,15 @@
 
     <!-- タブ2: 生態系パラメータ -->
     <div class="tab-content" id="tab-eco">
+      <!-- ② 追加された「画面端での反転」スイッチ -->
+      <div class="switch-group">
+        <span>画面端での反転 (Boundary Bounce)</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="boundary-enable">
+          <span class="slider-round"></span>
+        </label>
+      </div>
+
       <div class="control-group">
         <label>
           <span>指数減衰 (距離の影響度)</span>
@@ -517,6 +520,9 @@
     let decayTimeFactor = 1.0;  
     let sizeLimitThreshold = 1.20; 
 
+    // ② 画面端での反転設定フラグ（初期値はOFF）
+    let isBoundaryBounceEnabled = false;
+
     let isAudioEnabled = true;
     let volSpawn = 1.0;
     let volMotion = 1.0;
@@ -525,7 +531,6 @@
     let isCameraMode = false; 
     let isShiftPressed = false; 
 
-    // カメラ操作中判定用フラグ
     let isCameraTransforming = false; 
     let camTransformTimeout = null;
 
@@ -557,7 +562,6 @@
       }
     });
 
-    // タブ切り替え
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -591,7 +595,6 @@
       setCameraMode(!isCameraMode);
     });
 
-    // キーボードショートカット
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
 
@@ -617,7 +620,7 @@
       }
     });
 
-    // スライダーバインド
+    // スライダー＆スイッチバインド
     const bindSlider = (sliderId, displayId, callback) => {
       const slider = document.getElementById(sliderId);
       const display = document.getElementById(displayId);
@@ -627,6 +630,11 @@
         callback(val);
       });
     };
+
+    // ② 画面端での反転スイッチバインド
+    document.getElementById('boundary-enable').addEventListener('change', (e) => {
+      isBoundaryBounceEnabled = e.target.checked;
+    });
 
     bindSlider('exp-slider', 'exp-val', v => expFactor = v);
     
@@ -776,7 +784,6 @@
       triggerCameraTransform();
     }
 
-    // ② ズーム速度感度のマイルド化（数値を小刻みに制限）
     function zoomCamera(delta) {
       targetZoom = Math.max(5, targetZoom + delta);
       triggerCameraTransform();
@@ -899,8 +906,8 @@
           this.velocity.add(separation);
         }
 
-        // 視点操作中は反転境界チェックをストップ
-        if (!isCameraTransforming) {
+        // ② 「画面端での反転」スイッチがONで、かつ視点移動中ではない場合のみ壁の反転を実行
+        if (isBoundaryBounceEnabled && !isCameraTransforming) {
           const minX = targetCamPos.x - bounds.x;
           const maxX = targetCamPos.x + bounds.x;
           const minY = targetCamPos.y - bounds.y;
@@ -975,12 +982,14 @@
     }
 
     // ==========================================
-    // 4. 操作・マイルド化された視点制御
+    // 4. 操作・正確な中間点基準のピンチイン/アウト制御
     // ==========================================
     let isInteracting = false;
     let isPanDragging = false;
     let lastPos = new THREE.Vector3();
     let dragVelocity = new THREE.Vector3();
+
+    // ① ピンチ操作の中心（中間点）基準状態保持用
     let initialPinchDistance = null;
     let lastTouchCenter = new THREE.Vector2();
 
@@ -995,12 +1004,14 @@
       raycaster.ray.intersectPlane(mousePlane, intersectPoint);
     }
 
+    // ① 2指間の物理的距離を取得
     function getTouchDistance(e) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    // ① 2指の中間点（Midpoint）座標を正確に取得
     function getTouchCenter(e) {
       return new THREE.Vector2(
         (e.touches[0].clientX + e.touches[1].clientX) / 2,
@@ -1012,7 +1023,7 @@
       if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
 
-      // 2本指操作（ピンチイン/アウト・並行移動）
+      // ① 2本指操作開始（ピンチ＆パン移動の起点（中間点）を設定）
       if (e.touches && e.touches.length === 2) {
         isInteracting = false;
         isPanDragging = true;
@@ -1043,34 +1054,37 @@
     }
 
     function onPointerMove(e) {
-      // ② 2本指操作感度のマイルド調整
+      // ① 2本指による中間点起点ピンチイン・アウト＆パン制御
       if (e.touches && e.touches.length === 2) {
         triggerCameraTransform();
-        if (initialPinchDistance) {
-          const newDistance = getTouchDistance(e);
-          // ズーム感度を従来の約1/3に抑止 (0.003 -> 0.00095)
-          const delta = (initialPinchDistance - newDistance) * (targetZoom * 0.00095);
-          targetZoom = Math.max(5, targetZoom + delta);
-          initialPinchDistance = newDistance;
 
-          // パン移動感度もマイルド化 (0.0015 -> 0.0006)
-          const currentCenter = getTouchCenter(e);
-          const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0006);
-          const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0006);
+        const currentDistance = getTouchDistance(e);
+        const currentCenter = getTouchCenter(e);
+
+        if (initialPinchDistance && initialPinchDistance > 0) {
+          // 指の間隔（距離変化）を算出しズーム量を決定
+          const distanceDelta = initialPinchDistance - currentDistance;
+          const zoomDelta = distanceDelta * (targetZoom * 0.001);
+          targetZoom = Math.max(5, targetZoom + zoomDelta);
+
+          // 2指の中間点（中心軸）の移動量を算出して並行移動
+          const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0008);
+          const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0008);
 
           targetCamPos.x -= moveX;
           targetCamPos.y += moveY;
-          lastTouchCenter = currentCenter;
         }
+
+        initialPinchDistance = currentDistance;
+        lastTouchCenter = currentCenter;
         return;
       }
 
-      // ② ドラッグ並行移動感度のマイルド調整
+      // 1本指での視点操作（パン移動）
       if (isPanDragging && (isCameraMode || isShiftPressed)) {
         triggerCameraTransform();
         getPointerPos(e);
         
-        // 追従移動に減衰係数 (0.6) を掛けて素直でマイルドな操作感へ
         const deltaX = (intersectPoint.x - lastPos.x) * 0.6;
         const deltaY = (intersectPoint.y - lastPos.y) * 0.6;
 
@@ -1092,23 +1106,23 @@
     }
 
     function onPointerUp(e) {
+      // 指が離れた際の初期化処理
       if (e.touches && e.touches.length < 2) {
         initialPinchDistance = null;
       }
       if (!e.touches || e.touches.length === 0) {
         isInteracting = false;
         isPanDragging = false;
+        initialPinchDistance = null;
       }
     }
 
-    // ② マウスホイールズーム感度のマイルド調整
     window.addEventListener('wheel', (e) => {
       if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
       triggerCameraTransform();
 
       getPointerPos(e);
-      // ホイールズーム係数を 0.002 -> 0.00075 に縮小
       const zoomFactor = e.deltaY * 0.00075 * targetZoom;
       targetZoom = Math.max(5, targetZoom + zoomFactor);
 
@@ -1219,7 +1233,6 @@
       }
     }
 
-    // 3D空間パンニング・距離減衰更新
     function updateAudioVoices() {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
@@ -1276,7 +1289,6 @@
       requestAnimationFrame(animate);
 
       targetCamPos.z = targetZoom;
-      // ② カメラ補正イージングをマイルド化 (0.08 -> 0.055)
       camera.position.lerp(targetCamPos, 0.055);
 
       const vFOV = THREE.MathUtils.degToRad(camera.fov);
