@@ -15,7 +15,7 @@
       user-select: none;
     }
 
-    /* UI Panel Style & Collapse Logic */
+    /* UI Panel Style */
     #ui-container {
       position: absolute;
       top: 20px;
@@ -24,12 +24,11 @@
       pointer-events: auto;
       text-shadow: 0 0 8px rgba(0,255,200,0.5);
       background: rgba(13, 15, 24, 0.88);
-      padding: 16px 18px;
+      padding: 16px;
       border-radius: 14px;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(126, 241, 211, 0.25);
-      width: 270px;
-      max-height: 80vh;
+      width: 280px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
       transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.3s ease;
       box-sizing: border-box;
@@ -116,10 +115,10 @@
       border-radius: 50%;
     }
 
-    #ui-container.collapsed .ui-scrollable-content,
+    #ui-container.collapsed .tab-container,
+    #ui-container.collapsed .tab-content,
     #ui-container.collapsed .ui-header,
-    #ui-container.collapsed .concept-sub,
-    #ui-container.collapsed .section-title {
+    #ui-container.collapsed .concept-sub {
       display: none;
     }
 
@@ -133,31 +132,51 @@
       100% { box-shadow: 0 0 0 0 rgba(126, 241, 211, 0); }
     }
 
-    /* スクロール可能なUI領域 */
-    .ui-scrollable-content {
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding-right: 4px;
-      margin-right: -4px;
+    /* ③ タブUIスタイル */
+    .tab-container {
+      display: flex;
+      border-bottom: 1px solid rgba(126, 241, 211, 0.3);
+      margin-bottom: 12px;
+      gap: 4px;
     }
 
-    .ui-scrollable-content::-webkit-scrollbar {
+    .tab-btn {
+      flex: 1;
+      padding: 6px 0;
+      font-size: 0.65rem;
+      text-align: center;
+      background: rgba(126, 241, 211, 0.05);
+      color: #90c8b8;
+      border: none;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: bold;
+    }
+
+    .tab-btn.active {
+      background: rgba(126, 241, 211, 0.22);
+      color: #7ef1d3;
+      border-bottom: 2px solid #7ef1d3;
+    }
+
+    .tab-content {
+      display: none;
+      max-height: 48vh;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .tab-content::-webkit-scrollbar {
       width: 4px;
     }
-    .ui-scrollable-content::-webkit-scrollbar-thumb {
+    .tab-content::-webkit-scrollbar-thumb {
       background: rgba(126, 241, 211, 0.3);
       border-radius: 2px;
-    }
-
-    .section-title {
-      font-size: 0.65rem;
-      font-weight: bold;
-      color: #7ef1d3;
-      letter-spacing: 0.12em;
-      margin: 10px 0 6px 0;
-      padding-bottom: 2px;
-      border-bottom: 1px solid rgba(126, 241, 211, 0.2);
-      text-transform: uppercase;
     }
 
     .control-group {
@@ -177,12 +196,11 @@
       height: 4px;
     }
 
-    /* スイッチ用スタイル */
     .switch-group {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       font-size: 0.7rem;
       color: #a0e0d0;
     }
@@ -224,6 +242,47 @@
       transform: translateX(18px);
       background-color: #ffffff;
     }
+
+    /* ④ アクションボタン */
+    .action-btn {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      background: rgba(255, 90, 90, 0.15);
+      border: 1px solid rgba(255, 90, 90, 0.4);
+      color: #ff9090;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+    .action-btn:hover {
+      background: rgba(255, 90, 90, 0.3);
+    }
+
+    .mode-btn {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: rgba(126, 241, 211, 0.1);
+      border: 1px solid rgba(126, 241, 211, 0.3);
+      color: #7ef1d3;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .mode-btn.active {
+      background: rgba(126, 241, 211, 0.35);
+      border-color: #7ef1d3;
+      box-shadow: 0 0 10px rgba(126, 241, 211, 0.3);
+    }
   </style>
   <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -231,28 +290,42 @@
 <body>
 
   <div id="ui-container">
-    <!-- 折畳み時のアイコン -->
     <div class="collapsed-icon" title="メニューを開く">⚙️</div>
 
-    <!-- ヘッダー領域 -->
     <div class="ui-header">
       <h1>UNERI Flow</h1>
       <div class="ui-header-actions">
-        <!-- ② リセット視点ボタン -->
         <div class="icon-btn" id="reset-cam-btn" title="視点を最初に戻す">🏠</div>
-        <!-- トグルボタン -->
         <div class="icon-btn" id="toggle-btn" title="メニューを折りたたむ">─</div>
       </div>
     </div>
     
     <p class="concept-sub">衝突、進化、崩壊。<br>粒子の生態系を『持続』させる調和を見つけ出そう。</p>
 
-    <!-- ③ 整理されたメニューエリア -->
-    <div class="ui-scrollable-content">
-      
-      <!-- 生態系設定 -->
-      <div class="section-title">Ecosystem Settings</div>
+    <!-- ③ 3つのタブUI -->
+    <div class="tab-container">
+      <button class="tab-btn active" data-tab="tab-control">🎮 操作</button>
+      <button class="tab-btn" data-tab="tab-eco">🌿 生態系</button>
+      <button class="tab-btn" data-tab="tab-audio">🔊 音響</button>
+    </div>
 
+    <!-- タブ1: 操作設定 -->
+    <div class="tab-content active" id="tab-control">
+      <!-- ① & ② 視点操作モード（粒子非発生モード） -->
+      <button class="mode-btn" id="cam-mode-btn">
+        <span>🔍 視点操作モード (粒子不発生)</span>
+      </button>
+
+      <div style="font-size: 0.62rem; color: #90c8b8; line-height: 1.4; margin-bottom: 10px;">
+        ※ONにすると、ドラッグやピンチ操作時に粒子が発生せず、画面の並行移動や拡大縮小が行えます。
+      </div>
+
+      <!-- ④ 全粒子リセットボタン -->
+      <button class="action-btn" id="clear-particles-btn">🗑️ 全粒子をリセット</button>
+    </div>
+
+    <!-- タブ2: 生態系パラメータ -->
+    <div class="tab-content" id="tab-eco">
       <div class="control-group">
         <label>
           <span>指数減衰 (距離の影響度)</span>
@@ -292,10 +365,10 @@
         </label>
         <input type="range" id="size-slider" min="0.5" max="2.5" step="0.05" value="1.20">
       </div>
+    </div>
 
-      <!-- 音響設定（追加機能） -->
-      <div class="section-title">Audio Control</div>
-
+    <!-- タブ3: 音響設定 -->
+    <div class="tab-content" id="tab-audio">
       <div class="switch-group">
         <span>マスター音声 (Sound ON/OFF)</span>
         <label class="toggle-switch">
@@ -327,13 +400,13 @@
         </label>
         <input type="range" id="vol-fusion-slider" min="0.0" max="2.0" step="0.1" value="1.0">
       </div>
-
     </div>
+
   </div>
 
   <script>
     // ==========================================
-    // 0. スライダー・UI・音響制御変数
+    // 0. UI・制御変数
     // ==========================================
     let expFactor = 2.2;
     let thresholdValue = 0.0010;
@@ -341,15 +414,17 @@
     let decayTimeFactor = 1.0;  
     let sizeLimitThreshold = 1.20; 
 
-    // ③ 音量設定変数
     let isAudioEnabled = true;
     let volSpawn = 1.0;
     let volMotion = 1.0;
     let volFusion = 1.0;
 
+    let isCameraMode = false; // 視点移動モードフラグ
+
     const uiContainer = document.getElementById('ui-container');
     const toggleBtn = document.getElementById('toggle-btn');
     const resetCamBtn = document.getElementById('reset-cam-btn');
+    const camModeBtn = document.getElementById('cam-mode-btn');
 
     function toggleUI(e) {
       if (e) e.stopPropagation();
@@ -363,7 +438,31 @@
       }
     });
 
-    // スライダー・バインド
+    // ③ タブ切り替え処理
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetTab = btn.getAttribute('data-tab');
+
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+
+        btn.classList.add('active');
+        document.getElementById(targetTab).classList.add('active');
+      });
+    });
+
+    // ① & ② 視点操作モード切り替え
+    camModeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isCameraMode = !isCameraMode;
+      camModeBtn.classList.toggle('active', isCameraMode);
+    });
+
+    // スライダー・UIバインド
     const bindSlider = (sliderId, displayId, callback) => {
       const slider = document.getElementById(sliderId);
       const display = document.getElementById(displayId);
@@ -389,7 +488,6 @@
       document.getElementById('size-val').textContent = sizeLimitThreshold.toFixed(2);
     });
 
-    // 音響制御バインド
     document.getElementById('audio-enable').addEventListener('change', (e) => {
       isAudioEnabled = e.target.checked;
       if (audioCtx) {
@@ -403,7 +501,7 @@
     bindSlider('vol-fusion-slider', 'vol-fusion-val', v => volFusion = v);
 
     // ==========================================
-    // 1. Web Audio API ボイスプール
+    // 1. 【⑤修正】 Web Audio API 3D空間サラウンド音響
     // ==========================================
     let audioCtx = null;
     let masterFilter = null;
@@ -425,15 +523,35 @@
           for (let i = 0; i < MAX_VOICES; i++) {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
+
+            // ⑤ 3D空間パナー（立体音響）ノードを追加
+            let panner;
+            if (audioCtx.createPanner) {
+              panner = audioCtx.createPanner();
+              panner.panningModel = 'HRTF'; // 高精度サラウンド
+              panner.distanceModel = 'inverse';
+              panner.refDistance = 5;
+              panner.maxDistance = 100;
+              panner.rolloffFactor = 1.5;
+            } else {
+              panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+            }
+
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(220, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
             
-            osc.connect(gain);
-            gain.connect(masterFilter);
-            osc.start();
+            if (panner) {
+              osc.connect(gain);
+              gain.connect(panner);
+              panner.connect(masterFilter);
+            } else {
+              osc.connect(gain);
+              gain.connect(masterFilter);
+            }
 
-            voicePool.push({ osc, gain });
+            osc.start();
+            voicePool.push({ osc, gain, panner });
           }
         }
       }
@@ -442,7 +560,8 @@
       }
     }
 
-    function playPokoSound(pitchRatio = 1.0, isFusion = false) {
+    // ⑤ 3Dパンニングヒット音 (衝突・融合・分解)
+    function playPokoSound(pitchRatio = 1.0, isFusion = false, pos = null) {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
       const baseVolume = isFusion ? volFusion : volSpawn;
@@ -452,6 +571,18 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
+        let panner = null;
+        if (pos && audioCtx.createPanner) {
+          panner = audioCtx.createPanner();
+          panner.panningModel = 'HRTF';
+          panner.distanceModel = 'inverse';
+          panner.refDistance = 5;
+          panner.rolloffFactor = 1.5;
+          panner.positionX.setValueAtTime(pos.x, audioCtx.currentTime);
+          panner.positionY.setValueAtTime(pos.y, audioCtx.currentTime);
+          panner.positionZ.setValueAtTime(pos.z, audioCtx.currentTime);
+        }
+
         const baseFreq = 260 + Math.random() * 200;
         osc.frequency.setValueAtTime(baseFreq * pitchRatio, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.6 * pitchRatio, audioCtx.currentTime + 0.05);
@@ -460,8 +591,14 @@
         gain.gain.setValueAtTime(targetGain, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.06);
 
-        osc.connect(gain);
-        gain.connect(masterFilter || audioCtx.destination);
+        if (panner) {
+          osc.connect(gain);
+          gain.connect(panner);
+          panner.connect(masterFilter || audioCtx.destination);
+        } else {
+          osc.connect(gain);
+          gain.connect(masterFilter || audioCtx.destination);
+        }
 
         osc.start();
         osc.stop(audioCtx.currentTime + 0.07);
@@ -476,12 +613,10 @@
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
     
-    // カメラ目標値 (② 画面移動と無限ズーム用)
     let targetZoom = 30;
     let targetCamPos = new THREE.Vector3(0, 0, targetZoom);
     camera.position.set(0, 0, targetZoom);
 
-    // ② カメラリセット処理
     resetCamBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       targetZoom = 30;
@@ -509,7 +644,16 @@
     // 3. 粒子クラス
     // ==========================================
     const MAX_PARTICLES = 1000;
-    const particles = [];
+    let particles = [];
+
+    // ④ 全粒子消去処理
+    document.getElementById('clear-particles-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].destroy();
+      }
+      particles = [];
+    });
 
     const baseSphereGeo = new THREE.SphereGeometry(0.28, 12, 12);
     const particleMat = new THREE.MeshPhongMaterial({
@@ -588,22 +732,22 @@
           this.velocity.add(separation);
         }
 
-        // X, Y バウンディング
-        if (Math.abs(this.mesh.position.x) > bounds.x) {
-          this.velocity.x += -Math.sign(this.mesh.position.x) * 0.015 * (Math.abs(this.mesh.position.x) - bounds.x);
-        }
-        if (Math.abs(this.mesh.position.y) > bounds.y) {
-          this.velocity.y += -Math.sign(this.mesh.position.y) * 0.015 * (Math.abs(this.mesh.position.y) - bounds.y);
-        }
+        // カメラ位置（並行移動座標）に追従する移動境界制限
+        const minX = targetCamPos.x - bounds.x;
+        const maxX = targetCamPos.x + bounds.x;
+        const minY = targetCamPos.y - bounds.y;
+        const maxY = targetCamPos.y + bounds.y;
 
-        // ① Z軸（手前・奥）の範囲制限（見失わない制限）
+        if (this.mesh.position.x > maxX) this.velocity.x -= (this.mesh.position.x - maxX) * 0.015;
+        if (this.mesh.position.x < minX) this.velocity.x += (minX - this.mesh.position.x) * 0.015;
+        if (this.mesh.position.y > maxY) this.velocity.y -= (this.mesh.position.y - maxY) * 0.015;
+        if (this.mesh.position.y < minY) this.velocity.y += (minY - this.mesh.position.y) * 0.015;
+
+        // Z軸手前・奥の範囲制限
         const maxZ = 12.0;
         const minZ = -15.0;
-        if (this.mesh.position.z > maxZ) {
-          this.velocity.z -= (this.mesh.position.z - maxZ) * 0.02;
-        } else if (this.mesh.position.z < minZ) {
-          this.velocity.z += (minZ - this.mesh.position.z) * 0.02;
-        }
+        if (this.mesh.position.z > maxZ) this.velocity.z -= (this.mesh.position.z - maxZ) * 0.02;
+        if (this.mesh.position.z < minZ) this.velocity.z += (minZ - this.mesh.position.z) * 0.02;
       }
 
       update(allParticles) {
@@ -613,7 +757,6 @@
 
         if (this.fusionCooldown > 0) this.fusionCooldown--;
 
-        // 分解判定 (type > 0)
         if (this.type > 0) {
           let baseDecomposeAge = (200 + this.type * 80) * decayTimeFactor;
           
@@ -631,7 +774,6 @@
           return true; 
         }
 
-        // 初期粒子 (type == 0) の寿命
         let proximitySupport = 0;
         const totalCount = allParticles.length;
 
@@ -665,12 +807,14 @@
     }
 
     // ==========================================
-    // 4. ② 操作・無限ズーム・カメラ移動
+    // 4. ① & ② 操作・並行移動・視点制御
     // ==========================================
     let isInteracting = false;
+    let isPanDragging = false;
     let lastPos = new THREE.Vector3();
     let dragVelocity = new THREE.Vector3();
     let initialPinchDistance = null;
+    let lastTouchCenter = new THREE.Vector2();
 
     function getPointerPos(e) {
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -689,17 +833,38 @@
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    function getTouchCenter(e) {
+      return new THREE.Vector2(
+        (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        (e.touches[0].clientY + e.touches[1].clientY) / 2
+      );
+    }
+
     function onPointerDown(e) {
       if (e.target.closest('#ui-container')) return;
       initAudio();
 
+      // スマホ 2本指操作 (② 並行移動 ＆ ズーム)
       if (e.touches && e.touches.length === 2) {
         isInteracting = false;
+        isPanDragging = true;
         initialPinchDistance = getTouchDistance(e);
+        lastTouchCenter = getTouchCenter(e);
         return;
       }
 
+      // 視点操作モード時
+      if (isCameraMode) {
+        isPanDragging = true;
+        isInteracting = false;
+        getPointerPos(e);
+        lastPos.copy(intersectPoint);
+        return;
+      }
+
+      // 通常時：粒子発生ドラッグ
       isInteracting = true;
+      isPanDragging = false;
       getPointerPos(e);
       lastPos.copy(intersectPoint);
       dragVelocity.set(0, 0, 0);
@@ -708,22 +873,34 @@
     }
 
     function onPointerMove(e) {
-      // ピンチイン / ピンチアウト (② 無限ズーム ＆ ピンチイン移動)
+      // 2本指のピンチイン/アウト ＆ 2本指での画面並行移動
       if (e.touches && e.touches.length === 2) {
         if (initialPinchDistance) {
           const newDistance = getTouchDistance(e);
           const delta = (initialPinchDistance - newDistance) * (targetZoom * 0.003);
-          
-          // ② ズーム制限撤廃（無段階でズームアウト可能）
           targetZoom = Math.max(5, targetZoom + delta * 2.0);
-          
-          // タップ中心への吸い込み補正
-          getPointerPos(e);
-          targetCamPos.x += (intersectPoint.x - targetCamPos.x) * 0.02;
-          targetCamPos.y += (intersectPoint.y - targetCamPos.y) * 0.02;
-
           initialPinchDistance = newDistance;
+
+          // 2本指平行移動
+          const currentCenter = getTouchCenter(e);
+          const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0015);
+          const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0015);
+
+          targetCamPos.x -= moveX;
+          targetCamPos.y += moveY;
+          lastTouchCenter = currentCenter;
         }
+        return;
+      }
+
+      // ② 視点操作モード（1本指ドラッグでの並行移動）
+      if (isPanDragging && isCameraMode) {
+        getPointerPos(e);
+        const deltaX = intersectPoint.x - lastPos.x;
+        const deltaY = intersectPoint.y - lastPos.y;
+
+        targetCamPos.x -= deltaX;
+        targetCamPos.y -= deltaY;
         return;
       }
 
@@ -745,10 +922,10 @@
       }
       if (!e.touches || e.touches.length === 0) {
         isInteracting = false;
+        isPanDragging = false;
       }
     }
 
-    // マウスホイールでのズームイン・ズームアウト
     window.addEventListener('wheel', (e) => {
       if (e.target.closest('#ui-container')) return;
       initAudio();
@@ -757,10 +934,9 @@
       const zoomFactor = e.deltaY * 0.002 * targetZoom;
       targetZoom = Math.max(5, targetZoom + zoomFactor);
 
-      // ズームイン時にカーソルのある場所へ視点を寄せる
       if (e.deltaY < 0) {
-        targetCamPos.x += (intersectPoint.x - targetCamPos.x) * 0.1;
-        targetCamPos.y += (intersectPoint.y - targetCamPos.y) * 0.1;
+        targetCamPos.x += (intersectPoint.x - targetCamPos.x) * 0.08;
+        targetCamPos.y += (intersectPoint.y - targetCamPos.y) * 0.08;
       }
     }, { passive: true });
 
@@ -784,7 +960,7 @@
       }
       
       const speedPitch = 0.85 + Math.min(impulse.length() * 1.2, 0.7);
-      playPokoSound(speedPitch, false);
+      playPokoSound(speedPitch, false, pos);
     }
 
     window.addEventListener('pointerdown', onPointerDown);
@@ -794,7 +970,10 @@
     window.addEventListener('touchstart', (e) => {
       if (e.target.closest('#ui-container')) return;
       initAudio();
-      if (e.touches.length === 2) initialPinchDistance = getTouchDistance(e);
+      if (e.touches.length === 2) {
+        initialPinchDistance = getTouchDistance(e);
+        lastTouchCenter = getTouchCenter(e);
+      }
     }, { passive: true });
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp, { passive: true });
@@ -843,7 +1022,7 @@
               const fusionPos = new THREE.Vector3().addVectors(p1.mesh.position, p2.mesh.position).multiplyScalar(0.5);
               const fusionVel = new THREE.Vector3().addVectors(p1.velocity, p2.velocity).multiplyScalar(0.5);
 
-              playPokoSound(1.2 + Math.min(newType, 10) * 0.1, true);
+              playPokoSound(1.2 + Math.min(newType, 10) * 0.1, true, fusionPos);
 
               spawnCluster(fusionPos, 1, fusionVel, {
                 type: newType,
@@ -861,9 +1040,20 @@
       }
     }
 
-    // ③ 動的移動音量更新 (Motion Sound Control)
+    // ⑤ リアルタイム3D空間パンニング・距離減衰更新
     function updateAudioVoices() {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
+
+      // リスナー（視点カメラ）の位置と向きを設定
+      if (audioCtx.listener) {
+        if (audioCtx.listener.positionX) {
+          audioCtx.listener.positionX.setValueAtTime(camera.position.x, audioCtx.currentTime);
+          audioCtx.listener.positionY.setValueAtTime(camera.position.y, audioCtx.currentTime);
+          audioCtx.listener.positionZ.setValueAtTime(camera.position.z, audioCtx.currentTime);
+        } else {
+          audioCtx.listener.setPosition(camera.position.x, camera.position.y, camera.position.z);
+        }
+      }
 
       const activeParticles = particles
         .slice()
@@ -877,10 +1067,27 @@
         if (p && p.life > 0 && volMotion > 0.01) {
           const speed = p.velocity.length();
           const targetFreq = p.baseFreq + (speed * 300);
-          const targetVol = Math.min(0.0003 + (speed * 0.005), 0.003) * Math.max(0, p.life) * volMotion;
+          
+          // カメラと粒子の距離減衰
+          const distToCam = camera.position.distanceTo(p.mesh.position);
+          const distanceGain = Math.max(0.05, 1.0 - (distToCam / 120.0)); 
+
+          const targetVol = Math.min(0.0003 + (speed * 0.005), 0.003) * Math.max(0, p.life) * volMotion * distanceGain;
 
           voice.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
           voice.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
+
+          // ⑤ パナーノードの3D位置を粒子座標に合わせ動的リアルタイム更新
+          if (voice.panner && voice.panner.positionX) {
+            voice.panner.positionX.setTargetAtTime(p.mesh.position.x, audioCtx.currentTime, 0.05);
+            voice.panner.positionY.setTargetAtTime(p.mesh.position.y, audioCtx.currentTime, 0.05);
+            voice.panner.positionZ.setTargetAtTime(p.mesh.position.z, audioCtx.currentTime, 0.05);
+          } else if (voice.panner && voice.panner.pan) {
+            // ステレオフォールバック（左右パン）
+            const relX = (p.mesh.position.x - camera.position.x) / (camera.position.z * 0.5);
+            const panVal = Math.max(-1, Math.min(1, relX));
+            voice.panner.pan.setTargetAtTime(panVal, audioCtx.currentTime, 0.05);
+          }
         } else {
           voice.gain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.08);
         }
@@ -893,7 +1100,6 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // ② カメラ位置のスムース更新
       targetCamPos.z = targetZoom;
       camera.position.lerp(targetCamPos, 0.08);
 
@@ -925,7 +1131,7 @@
           p.destroy();
           particles.splice(i, 1);
 
-          playPokoSound(0.9 + prevType * 0.1, true);
+          playPokoSound(0.9 + prevType * 0.1, true, parentPos);
 
           spawnCluster(parentPos, 2, parentVel.negate().multiplyScalar(0.25), {
             type: prevType,
