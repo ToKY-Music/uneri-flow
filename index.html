@@ -15,17 +15,16 @@
       user-select: none;
     }
 
-    /* ② 画面上部中央に独立配置した「視点操作モード」フローティングボタン */
+    /* ① PC表示時の「視点操作モード」フローティングボタン（右上へ配置変更） */
     #mode-floating-btn {
       position: absolute;
       top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      right: 20px;
       z-index: 100;
       background: rgba(13, 15, 24, 0.85);
       border: 1px solid rgba(126, 241, 211, 0.4);
       color: #7ef1d3;
-      padding: 8px 18px;
+      padding: 8px 16px;
       border-radius: 20px;
       cursor: pointer;
       font-size: 0.8rem;
@@ -42,7 +41,7 @@
     #mode-floating-btn:hover {
       background: rgba(20, 25, 40, 0.95);
       border-color: #7ef1d3;
-      transform: translateX(-50%) scale(1.05);
+      transform: scale(1.05);
     }
 
     #mode-floating-btn.active {
@@ -50,6 +49,24 @@
       border-color: #7ef1d3;
       color: #ffffff;
       box-shadow: 0 0 15px rgba(126, 241, 211, 0.5);
+    }
+
+    /* ① スマートフォン端末（画面幅768px以下）でのボタン重なり防止設定 */
+    @media (max-width: 768px) {
+      #mode-floating-btn {
+        top: auto;
+        bottom: 24px;
+        right: 20px;
+        padding: 10px 14px;
+        font-size: 0.75rem;
+        background: rgba(13, 15, 24, 0.92);
+        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6);
+      }
+      
+      #ui-container {
+        width: 280px !important;
+        max-width: calc(100vw - 40px);
+      }
     }
 
     /* UI Panel Style */
@@ -66,7 +83,7 @@
       border-radius: 14px;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(126, 241, 211, 0.25);
-      width: 300px;
+      width: 290px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
       transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), padding 0.3s ease;
       box-sizing: border-box;
@@ -76,7 +93,7 @@
 
     /* 折りたたみ状態 */
     #ui-container.collapsed {
-      width: 48px;
+      width: 48px !important;
       height: 48px;
       padding: 0;
       border-radius: 24px;
@@ -198,7 +215,7 @@
 
     .tab-content {
       display: none;
-      max-height: 52vh;
+      max-height: 48vh;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -215,7 +232,7 @@
       border-radius: 2px;
     }
 
-    /* ③ 操作ガイド & ショートカットスタイル */
+    /* 操作ガイド & ショートカットスタイル */
     .guide-section {
       background: rgba(126, 241, 211, 0.05);
       border: 1px solid rgba(126, 241, 211, 0.15);
@@ -345,7 +362,7 @@
 </head>
 <body>
 
-  <!-- ② 画面中央上部の常時表示フローティングボタン -->
+  <!-- ① 重なりを防ぐ配置に調整したフローティングボタン -->
   <button id="mode-floating-btn" title="視点操作モード（Spaceキー）">
     <span id="mode-icon">✨</span>
     <span id="mode-text">粒子発生モード</span>
@@ -370,7 +387,7 @@
       <button class="tab-btn" data-tab="tab-audio">🔊 音響</button>
     </div>
 
-    <!-- ③ タブ1: 操作説明 & ショートカットガイド -->
+    <!-- タブ1: 操作説明 & ショートカットガイド -->
     <div class="tab-content active" id="tab-control">
       <div class="guide-section">
         <div class="guide-title">📱 タッチ / マウス操作方法</div>
@@ -508,7 +525,7 @@
     let isCameraMode = false; 
     let isShiftPressed = false; 
 
-    // ① カメラ操作中判定用フラグ
+    // カメラ操作中判定用フラグ
     let isCameraTransforming = false; 
     let camTransformTimeout = null;
 
@@ -517,14 +534,13 @@
       if (camTransformTimeout) clearTimeout(camTransformTimeout);
       camTransformTimeout = setTimeout(() => {
         isCameraTransforming = false;
-      }, 300); // 操作終了から0.3秒間反転処理を抑止
+      }, 350); 
     }
 
     const uiContainer = document.getElementById('ui-container');
     const toggleBtn = document.getElementById('toggle-btn');
     const resetCamBtn = document.getElementById('reset-cam-btn');
     
-    // ② 画面上部ボタン
     const modeFloatingBtn = document.getElementById('mode-floating-btn');
     const modeIcon = document.getElementById('mode-icon');
     const modeText = document.getElementById('mode-text');
@@ -558,7 +574,6 @@
       });
     });
 
-    // ② モード切替関数
     function setCameraMode(enabled) {
       isCameraMode = enabled;
       modeFloatingBtn.classList.toggle('active', isCameraMode);
@@ -576,7 +591,7 @@
       setCameraMode(!isCameraMode);
     });
 
-    // ③ キーボードショートカットの実装
+    // キーボードショートカット
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
 
@@ -588,9 +603,9 @@
       } else if (e.key === 'r' || e.key === 'R') {
         resetCameraPos();
       } else if (e.key === '+' || e.key === '=') {
-        zoomCamera(-4);
+        zoomCamera(-2);
       } else if (e.key === '-' || e.key === '_') {
-        zoomCamera(4);
+        zoomCamera(2);
       } else if (e.key === 'c' || e.key === 'C') {
         clearAllParticles();
       }
@@ -761,6 +776,7 @@
       triggerCameraTransform();
     }
 
+    // ② ズーム速度感度のマイルド化（数値を小刻みに制限）
     function zoomCamera(delta) {
       targetZoom = Math.max(5, targetZoom + delta);
       triggerCameraTransform();
@@ -883,7 +899,7 @@
           this.velocity.add(separation);
         }
 
-        // ① 視点操作中（カメラ移動/ズーム時）は「画面端反転」機能をストップ
+        // 視点操作中は反転境界チェックをストップ
         if (!isCameraTransforming) {
           const minX = targetCamPos.x - bounds.x;
           const maxX = targetCamPos.x + bounds.x;
@@ -959,7 +975,7 @@
     }
 
     // ==========================================
-    // 4. 操作・並行移動・視点制御
+    // 4. 操作・マイルド化された視点制御
     // ==========================================
     let isInteracting = false;
     let isPanDragging = false;
@@ -1027,18 +1043,20 @@
     }
 
     function onPointerMove(e) {
-      // 2本指操作
+      // ② 2本指操作感度のマイルド調整
       if (e.touches && e.touches.length === 2) {
         triggerCameraTransform();
         if (initialPinchDistance) {
           const newDistance = getTouchDistance(e);
-          const delta = (initialPinchDistance - newDistance) * (targetZoom * 0.003);
-          targetZoom = Math.max(5, targetZoom + delta * 2.0);
+          // ズーム感度を従来の約1/3に抑止 (0.003 -> 0.00095)
+          const delta = (initialPinchDistance - newDistance) * (targetZoom * 0.00095);
+          targetZoom = Math.max(5, targetZoom + delta);
           initialPinchDistance = newDistance;
 
+          // パン移動感度もマイルド化 (0.0015 -> 0.0006)
           const currentCenter = getTouchCenter(e);
-          const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0015);
-          const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0015);
+          const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0006);
+          const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0006);
 
           targetCamPos.x -= moveX;
           targetCamPos.y += moveY;
@@ -1047,12 +1065,14 @@
         return;
       }
 
-      // 視点移動ドラッグ
+      // ② ドラッグ並行移動感度のマイルド調整
       if (isPanDragging && (isCameraMode || isShiftPressed)) {
         triggerCameraTransform();
         getPointerPos(e);
-        const deltaX = intersectPoint.x - lastPos.x;
-        const deltaY = intersectPoint.y - lastPos.y;
+        
+        // 追従移動に減衰係数 (0.6) を掛けて素直でマイルドな操作感へ
+        const deltaX = (intersectPoint.x - lastPos.x) * 0.6;
+        const deltaY = (intersectPoint.y - lastPos.y) * 0.6;
 
         targetCamPos.x -= deltaX;
         targetCamPos.y -= deltaY;
@@ -1081,18 +1101,20 @@
       }
     }
 
+    // ② マウスホイールズーム感度のマイルド調整
     window.addEventListener('wheel', (e) => {
       if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
       triggerCameraTransform();
 
       getPointerPos(e);
-      const zoomFactor = e.deltaY * 0.002 * targetZoom;
+      // ホイールズーム係数を 0.002 -> 0.00075 に縮小
+      const zoomFactor = e.deltaY * 0.00075 * targetZoom;
       targetZoom = Math.max(5, targetZoom + zoomFactor);
 
       if (e.deltaY < 0) {
-        targetCamPos.x += (intersectPoint.x - targetCamPos.x) * 0.08;
-        targetCamPos.y += (intersectPoint.y - targetCamPos.y) * 0.08;
+        targetCamPos.x += (intersectPoint.x - targetCamPos.x) * 0.04;
+        targetCamPos.y += (intersectPoint.y - targetCamPos.y) * 0.04;
       }
     }, { passive: true });
 
@@ -1254,7 +1276,8 @@
       requestAnimationFrame(animate);
 
       targetCamPos.z = targetZoom;
-      camera.position.lerp(targetCamPos, 0.08);
+      // ② カメラ補正イージングをマイルド化 (0.08 -> 0.055)
+      camera.position.lerp(targetCamPos, 0.055);
 
       const vFOV = THREE.MathUtils.degToRad(camera.fov);
       const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
