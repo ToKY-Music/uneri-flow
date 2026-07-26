@@ -273,7 +273,7 @@
     }
 
     .control-group {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     label {
       display: flex;
@@ -421,20 +421,21 @@
       <button class="action-btn" id="clear-particles-btn">🗑️ 全粒子をリセット (C)</button>
     </div>
 
-    <!-- タブ2: 生態系パラメータ -->
+    <!-- タブ2: 生態系パラメーター (分かりやすい表現へ見直し) -->
     <div class="tab-content" id="tab-eco">
-      <!-- ② 追加された「画面端での反転」スイッチ -->
+      <!-- ① デフォルトONに変更 -->
       <div class="switch-group">
-        <span>画面端での反転 (Boundary Bounce)</span>
+        <span>画面端での反転 (跳ね返り)</span>
         <label class="toggle-switch">
-          <input type="checkbox" id="boundary-enable">
+          <input type="checkbox" id="boundary-enable" checked>
           <span class="slider-round"></span>
         </label>
       </div>
 
+      <!-- ③ 分かりやすい表現に改修 -->
       <div class="control-group">
         <label>
-          <span>指数減衰 (距離の影響度)</span>
+          <span>孤独時の寿命の縮みやすさ</span>
           <span id="exp-val">2.2</span>
         </label>
         <input type="range" id="exp-slider" min="1.0" max="3.5" step="0.1" value="2.2">
@@ -442,7 +443,7 @@
 
       <div class="control-group">
         <label>
-          <span>閾値ブレーキ (孤立判定)</span>
+          <span>「ひとりぼっち」の判定基準</span>
           <span id="thresh-val">0.0010</span>
         </label>
         <input type="range" id="thresh-slider" min="0.0000" max="0.0050" step="0.0002" value="0.0010">
@@ -450,7 +451,7 @@
 
       <div class="control-group">
         <label>
-          <span>新粒子の発生しやすさ</span>
+          <span>衝突で合体・進化する確率</span>
           <span id="react-val">1.0</span>
         </label>
         <input type="range" id="react-slider" min="0.0" max="3.0" step="0.1" value="1.0">
@@ -458,7 +459,7 @@
 
       <div class="control-group">
         <label>
-          <span>新粒子の分解時間</span>
+          <span>進化粒子の寿命（分解時間）</span>
           <span id="decay-val">1.0</span>
         </label>
         <input type="range" id="decay-slider" min="0.1" max="3.0" step="0.1" value="1.0">
@@ -466,7 +467,7 @@
 
       <div class="control-group">
         <label>
-          <span>大きさ閾値 (限界サイズ)</span>
+          <span>進化粒子の最大サイズ上限</span>
           <span id="size-val">1.20</span>
         </label>
         <input type="range" id="size-slider" min="0.5" max="2.5" step="0.05" value="1.20">
@@ -491,12 +492,13 @@
         <input type="range" id="vol-spawn-slider" min="0.0" max="2.0" step="0.1" value="1.0">
       </div>
 
+      <!-- ② 移動音のデフォルト値・上限アップ -->
       <div class="control-group">
         <label>
           <span>粒子移動音 (Motion Volume)</span>
-          <span id="vol-motion-val">1.0</span>
+          <span id="vol-motion-val">1.5</span>
         </label>
-        <input type="range" id="vol-motion-slider" min="0.0" max="2.0" step="0.1" value="1.0">
+        <input type="range" id="vol-motion-slider" min="0.0" max="3.0" step="0.1" value="1.5">
       </div>
 
       <div class="control-group">
@@ -520,12 +522,13 @@
     let decayTimeFactor = 1.0;  
     let sizeLimitThreshold = 1.20; 
 
-    // ② 画面端での反転設定フラグ（初期値はOFF）
-    let isBoundaryBounceEnabled = false;
+    // ① 画面端での反転設定（デフォルト ON に変更）
+    let isBoundaryBounceEnabled = true;
 
     let isAudioEnabled = true;
     let volSpawn = 1.0;
-    let volMotion = 1.0;
+    // ② 移動音の初期値を 1.5 に引き上げ
+    let volMotion = 1.5;
     let volFusion = 1.0;
 
     let isCameraMode = false; 
@@ -631,7 +634,6 @@
       });
     };
 
-    // ② 画面端での反転スイッチバインド
     document.getElementById('boundary-enable').addEventListener('change', (e) => {
       isBoundaryBounceEnabled = e.target.checked;
     });
@@ -906,7 +908,7 @@
           this.velocity.add(separation);
         }
 
-        // ② 「画面端での反転」スイッチがONで、かつ視点移動中ではない場合のみ壁の反転を実行
+        // 画面端での反転制御（視点操作中は一時的に反転を保留）
         if (isBoundaryBounceEnabled && !isCameraTransforming) {
           const minX = targetCamPos.x - bounds.x;
           const maxX = targetCamPos.x + bounds.x;
@@ -982,14 +984,13 @@
     }
 
     // ==========================================
-    // 4. 操作・正確な中間点基準のピンチイン/アウト制御
+    // 4. 操作・中間点基準のピンチイン/アウト制御
     // ==========================================
     let isInteracting = false;
     let isPanDragging = false;
     let lastPos = new THREE.Vector3();
     let dragVelocity = new THREE.Vector3();
 
-    // ① ピンチ操作の中心（中間点）基準状態保持用
     let initialPinchDistance = null;
     let lastTouchCenter = new THREE.Vector2();
 
@@ -1004,14 +1005,12 @@
       raycaster.ray.intersectPlane(mousePlane, intersectPoint);
     }
 
-    // ① 2指間の物理的距離を取得
     function getTouchDistance(e) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       return Math.sqrt(dx * dx + dy * dy);
     }
 
-    // ① 2指の中間点（Midpoint）座標を正確に取得
     function getTouchCenter(e) {
       return new THREE.Vector2(
         (e.touches[0].clientX + e.touches[1].clientX) / 2,
@@ -1023,7 +1022,6 @@
       if (e.target.closest('#ui-container') || e.target.closest('#mode-floating-btn')) return;
       initAudio();
 
-      // ① 2本指操作開始（ピンチ＆パン移動の起点（中間点）を設定）
       if (e.touches && e.touches.length === 2) {
         isInteracting = false;
         isPanDragging = true;
@@ -1033,7 +1031,6 @@
         return;
       }
 
-      // 視点操作モード または Shiftキー押下時
       if (isCameraMode || isShiftPressed) {
         isPanDragging = true;
         isInteracting = false;
@@ -1043,7 +1040,6 @@
         return;
       }
 
-      // 通常粒子発生モード
       isInteracting = true;
       isPanDragging = false;
       getPointerPos(e);
@@ -1054,7 +1050,6 @@
     }
 
     function onPointerMove(e) {
-      // ① 2本指による中間点起点ピンチイン・アウト＆パン制御
       if (e.touches && e.touches.length === 2) {
         triggerCameraTransform();
 
@@ -1062,12 +1057,10 @@
         const currentCenter = getTouchCenter(e);
 
         if (initialPinchDistance && initialPinchDistance > 0) {
-          // 指の間隔（距離変化）を算出しズーム量を決定
           const distanceDelta = initialPinchDistance - currentDistance;
           const zoomDelta = distanceDelta * (targetZoom * 0.001);
           targetZoom = Math.max(5, targetZoom + zoomDelta);
 
-          // 2指の中間点（中心軸）の移動量を算出して並行移動
           const moveX = (currentCenter.x - lastTouchCenter.x) * (targetZoom * 0.0008);
           const moveY = (currentCenter.y - lastTouchCenter.y) * (targetZoom * 0.0008);
 
@@ -1080,7 +1073,6 @@
         return;
       }
 
-      // 1本指での視点操作（パン移動）
       if (isPanDragging && (isCameraMode || isShiftPressed)) {
         triggerCameraTransform();
         getPointerPos(e);
@@ -1106,7 +1098,6 @@
     }
 
     function onPointerUp(e) {
-      // 指が離れた際の初期化処理
       if (e.touches && e.touches.length < 2) {
         initialPinchDistance = null;
       }
@@ -1233,6 +1224,7 @@
       }
     }
 
+    // ② 移動音（volMotion）のゲイン計算を調整して音量向上
     function updateAudioVoices() {
       if (!isAudioEnabled || !audioCtx || audioCtx.state !== 'running') return;
 
@@ -1262,7 +1254,8 @@
           const distToCam = camera.position.distanceTo(p.mesh.position);
           const distanceGain = Math.max(0.05, 1.0 - (distToCam / 120.0)); 
 
-          const targetVol = Math.min(0.0003 + (speed * 0.005), 0.003) * Math.max(0, p.life) * volMotion * distanceGain;
+          // 音量倍率（0.008）を引き上げ、移動音の存在感を強化
+          const targetVol = Math.min(0.0006 + (speed * 0.008), 0.006) * Math.max(0, p.life) * volMotion * distanceGain;
 
           voice.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
           voice.gain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
